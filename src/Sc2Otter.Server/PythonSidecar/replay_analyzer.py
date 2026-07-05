@@ -22,6 +22,7 @@ def analyze_replay(replay_path, my_name=None):
                 "name": player.name,
                 "race": player.play_race,
                 "result": player.result,
+                "tags": [],
                 "notes": [],
                 "stats": {
                     "workersCreated": 0,
@@ -111,6 +112,8 @@ def analyze_replay(replay_path, my_name=None):
                         bc_count += 1
                         if time_sec < bc_first_time:
                             bc_first_time = time_sec
+                    elif unit_name in ['SCV', 'Probe', 'Drone']:
+                        player_result["stats"]["workersCreated"] += 1
                 elif event.name == 'UnitInitEvent' and event.control_pid == player.pid:
                     unit_name = event.unit.name
                     time_sec = event.second
@@ -121,10 +124,6 @@ def analyze_replay(replay_path, my_name=None):
                         if time_sec < dark_shrine_time:
                             dark_shrine_time = time_sec
                             
-                elif event.name == 'UnitBornEvent' and event.control_pid == player.pid:
-                    if event.unit.name in ['SCV', 'Probe', 'Drone']:
-                        player_result["stats"]["workersCreated"] += 1
-                        
             # Analyze player stats for supply block and unspent minerals
             stats_events = [e for e in replay.tracker_events if e.name == 'PlayerStatsEvent' and getattr(e, 'pid', None) == player.pid]
             if stats_events:
