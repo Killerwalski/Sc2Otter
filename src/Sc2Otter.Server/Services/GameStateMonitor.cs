@@ -112,10 +112,20 @@ public class GameStateMonitor(
         _currentState = newState;
         logger.LogInformation("Game state: {Previous} → {New}", previousState, newState);
 
+        List<OpponentDetectedEvent>? newlyDetectedOpponents = null;
+
         switch (newState)
         {
-            case Sc2GameState.LoadingScreen when gameInfo is not null:
-                await HandleLoadingScreen(gameInfo, ct);
+            case Sc2GameState.LoadingScreen:
+            case Sc2GameState.InGame:
+                if (gameInfo is not null && _currentOpponentIds.Count == 0)
+                {
+                    newlyDetectedOpponents = await DetectOpponentsAsync(gameInfo, ct);
+                    if (newlyDetectedOpponents.Count > 0)
+                    {
+                        await hubContext.Clients.All.SendAsync("OpponentsDetected", newlyDetectedOpponents, ct);
+                    }
+                }
                 break;
 
             case Sc2GameState.PostGame when gameInfo is not null:
@@ -133,18 +143,18 @@ public class GameStateMonitor(
                 break;
         }
 
-        var stateEvent = new GameStateChangedEvent(newState, null, DateTime.UtcNow);
+        var stateEvent = new GameStateChangedEvent(newState, newlyDetectedOpponents, DateTime.UtcNow);
         await hubContext.Clients.All.SendAsync("GameStateChanged", stateEvent, ct);
     }
 
-    private async Task HandleLoadingScreen(Sc2GameResponse gameInfo, CancellationToken ct)
+    private async Task<List<OpponentDetectedEvent>> DetectOpponentsAsync(Sc2GameResponse gameInfo, CancellationToken ct)
     {
         // Identify opponents (players who are not "me" — we detect "me" as the first user-type player)
         var humanPlayers = gameInfo.Players
             .Where(p => !p.Type.Equals("computer", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        if (humanPlayers.Count == 0) return;
+        if (humanPlayers.Count == 0) return [];
 
         // Determine game mode based on player count
         var totalPlayers = humanPlayers.Count;
@@ -200,14 +210,7 @@ public class GameStateMonitor(
 
         _lastMapName = null; // Will be populated when we can determine the map
 
-        // Push all detected opponents to the UI
-        var gameStateEvent = new GameStateChangedEvent(
-            Sc2GameState.LoadingScreen,
-            detectedOpponents,
-            DateTime.UtcNow);
-
-        await hubContext.Clients.All.SendAsync("OpponentsDetected", detectedOpponents, ct);
-        await hubContext.Clients.All.SendAsync("GameStateChanged", gameStateEvent, ct);
+        return detectedOpponents;
     }
 
     private async Task HandlePostGame(Sc2GameResponse gameInfo, CancellationToken ct)
