@@ -9,6 +9,7 @@ public class UserSettings
     public string HotkeyModifiers { get; set; } = "Ctrl+Shift";
     public string HotkeyChar { get; set; } = "N";
     public int PollingIntervalMs { get; set; } = 2000;
+    public string ReplayDirectory { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "StarCraft II", "Accounts");
     
     public UserSettings Clone() => (UserSettings)MemberwiseClone();
 }

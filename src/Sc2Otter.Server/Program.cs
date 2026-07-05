@@ -92,13 +92,13 @@ app.MapStaticAssets();
 // SignalR hub
 app.MapHub<ScoutHub>("/scouthub");
 
-app.MapPost("/api/admin/scan-replays", (ReplayAnalysisService analyzer, ILogger<Program> logger) =>
+app.MapPost("/api/admin/scan-replays", (ReplayAnalysisService analyzer, SettingsService settingsService, ILogger<Program> logger) =>
 {
     _ = Task.Run(async () => 
     {
         try
         {
-            var replayDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "StarCraft II", "Accounts");
+            var replayDir = settingsService.Current.ReplayDirectory;
             if (!Directory.Exists(replayDir)) return;
 
             var cutoff = new DateTime(2026, 6, 30, 0, 0, 0, DateTimeKind.Utc);

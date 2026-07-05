@@ -110,7 +110,7 @@ public class ReplayAnalysisService(
                         // If the opponent won, our result is Loss. If opponent lost, our result is Win.
                         var ourResult = opponentWon ? MatchResult.Loss : MatchResult.Win;
                         
-                        await repo.RecordMatchAsync(opponent.Id, ourResult, "Unknown Map", null, playerResult.Race, null, ct);
+                        await repo.RecordMatchAsync(opponent.Id, ourResult, result.MapName, null, playerResult.Race, null, result.StartTime, ct);
                     }
                 }
             }
@@ -125,6 +125,8 @@ public class ReplayAnalysisService(
     {
         public bool Success { get; set; }
         public string? Error { get; set; }
+        public string? MapName { get; set; }
+        public DateTime? StartTime { get; set; }
         public List<PlayerAnalysisResult>? Data { get; set; }
     }
 

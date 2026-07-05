@@ -148,8 +148,9 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
         return await db.Tags.OrderBy(t => t.Name).ToListAsync(ct);
     }
 
-    public async Task<MatchRecord> RecordMatchAsync(int opponentId, MatchResult result, string? mapName = null, string? myRace = null, string? opponentRace = null, string? gameMode = null, CancellationToken ct = default)
+    public async Task<MatchRecord> RecordMatchAsync(int opponentId, MatchResult result, string? mapName = null, string? myRace = null, string? opponentRace = null, string? gameMode = null, DateTime? playedAt = null, CancellationToken ct = default)
     {
+        var recordTime = playedAt ?? DateTime.UtcNow;
         var record = new MatchRecord
         {
             OpponentId = opponentId,
@@ -158,14 +159,17 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
             MyRace = myRace,
             OpponentRace = opponentRace,
             GameMode = gameMode,
-            PlayedAt = DateTime.UtcNow
+            PlayedAt = recordTime
         };
         db.MatchRecords.Add(record);
 
         var opponent = await db.Opponents.FindAsync([opponentId], ct);
         if (opponent is not null)
         {
-            opponent.LastSeen = DateTime.UtcNow;
+            if (opponent.LastSeen < recordTime)
+            {
+                opponent.LastSeen = recordTime;
+            }
             if (opponentRace is not null) opponent.Race = opponentRace;
         }
 
@@ -181,5 +185,13 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
             records.Count(r => r.Result == MatchResult.Win),
             records.Count(r => r.Result == MatchResult.Loss)
         );
+    }
+
+    public async Task WipeDatabaseAsync(CancellationToken ct = default)
+    {
+        await db.Opponents.ExecuteDeleteAsync(ct);
+        await db.MatchRecords.ExecuteDeleteAsync(ct);
+        await db.Notes.ExecuteDeleteAsync(ct);
+        await db.Tags.ExecuteDeleteAsync(ct);
     }
 }

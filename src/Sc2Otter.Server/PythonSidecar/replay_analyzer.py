@@ -71,7 +71,12 @@ def analyze_replay(replay_path, my_name=None):
                                     
             results.append(player_result)
             
-        print(json.dumps({"success": True, "data": results}))
+        print(json.dumps({
+            "success": True, 
+            "map_name": replay.map_name,
+            "start_time": replay.start_time.isoformat(),
+            "data": results
+        }))
         
     except Exception as e:
         print(json.dumps({"success": False, "error": str(e)}))

@@ -323,7 +323,7 @@ public class GameStateMonitor(
             await repo.RecordMatchAsync(
                 opponentId, ourResult, _lastMapName,
                 myRace: null, opponentRace: player.Race,
-                gameMode: null, ct);
+                gameMode: null, ct: ct);
 
             logger.LogInformation("Match recorded vs {Name}: {Result}", player.Name, ourResult);
         }

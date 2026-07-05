@@ -1,7 +1,11 @@
 @page "/settings"
 @rendermode InteractiveServer
 @using Sc2Otter.Server.Services
+@using Sc2Otter.Core.Interfaces
 @inject SettingsService SettingsService
+@inject IServiceScopeFactory ScopeFactory
+@inject ReplayAnalysisService ReplayAnalyzer
+@inject ILogger<Settings> Logger
 
 <div class="page-header">
     <h1>Settings</h1>
@@ -74,6 +78,30 @@
     </div>
 
     <div class="settings-section">
+        <h3>Replay Analysis</h3>
+        <div class="setting-row">
+            <div>
+                <div class="setting-label">Replay Directory</div>
+                <div class="setting-description">Folder containing the .SC2Replay files to scan</div>
+            </div>
+            <div>
+                <input type="text" class="form-control" style="width: 400px; background: var(--bg-tertiary); color: white; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 4px;" @bind="TempSettings.ReplayDirectory" placeholder="C:\Path\To\Replays" />
+            </div>
+        </div>
+        <div class="setting-row" style="margin-top: 15px;">
+            <div>
+                <div class="setting-label">Bulk Scan Replays</div>
+                <div class="setting-description">Scans all replays in directory since June 30, 2026</div>
+            </div>
+            <div>
+                <button class="btn btn-secondary" style="padding: 6px 12px;" @onclick="StartBulkScan" disabled="@IsScanning">
+                    @(IsScanning ? "Scanning..." : "Scan Replays")
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="settings-section">
         <h3>Database</h3>
         <div class="setting-row">
             <div>
@@ -82,6 +110,17 @@
             </div>
             <div>
                 <span style="color: var(--text-muted); font-size: 13px; font-family: 'JetBrains Mono', monospace;">%APPDATA%\Sc2Otter\scout.db</span>
+            </div>
+        </div>
+        <div class="setting-row" style="margin-top: 15px;">
+            <div>
+                <div class="setting-label" style="color: var(--accent-danger);">Wipe Database</div>
+                <div class="setting-description">Danger! Permanently deletes all opponents, tags, notes, and records.</div>
+            </div>
+            <div>
+                <button class="btn btn-danger" style="background-color: var(--accent-danger); padding: 6px 12px; color: white; border: none; border-radius: 4px;" @onclick="WipeDatabase" disabled="@IsWiping">
+                    @(IsWiping ? "Wiping..." : "Wipe Everything")
+                </button>
             </div>
         </div>
     </div>
@@ -98,6 +137,8 @@
 @code {
     private UserSettings TempSettings { get; set; } = new();
     private bool ShowSaved = false;
+    private bool IsScanning = false;
+    private bool IsWiping = false;
 
     protected override void OnInitialized()
     {
@@ -112,5 +153,76 @@
         await Task.Delay(2500);
         ShowSaved = false;
         await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task WipeDatabase()
+    {
+        // Debug feature: just wipe it without JS interop confirm for now.
+        IsWiping = true;
+        await InvokeAsync(StateHasChanged);
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var repo = scope.ServiceProvider.GetRequiredService<IOpponentRepository>();
+            await repo.WipeDatabaseAsync();
+            Logger.LogInformation("Database wiped successfully from UI.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to wipe database");
+        }
+        finally
+        {
+            IsWiping = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task StartBulkScan()
+    {
+        if (IsScanning) return;
+        IsScanning = true;
+        await InvokeAsync(StateHasChanged);
+        
+        // Ensure settings are saved first so the bulk scan uses the latest directory and MyName
+        SettingsService.Update(TempSettings);
+        
+        _ = Task.Run(async () => 
+        {
+            try
+            {
+                var replayDir = SettingsService.Current.ReplayDirectory;
+                if (!Directory.Exists(replayDir)) 
+                {
+                    Logger.LogWarning("Replay directory not found: {Dir}", replayDir);
+                    return;
+                }
+
+                var cutoff = new DateTime(2026, 6, 30, 0, 0, 0, DateTimeKind.Utc);
+                var files = Directory.GetFiles(replayDir, "*.SC2Replay", SearchOption.AllDirectories)
+                    .Where(f => f.Contains("Multiplayer") && File.GetLastWriteTimeUtc(f) >= cutoff)
+                    .ToList();
+                    
+                Logger.LogInformation("Found {Count} replays to scan", files.Count);
+                
+                int count = 0;
+                foreach (var file in files)
+                {
+                    await ReplayAnalyzer.AnalyzeReplayAsync(file);
+                    count++;
+                    if (count % 10 == 0) Logger.LogInformation("Scanned {Count}/{Total} replays...", count, files.Count);
+                }
+                Logger.LogInformation("Finished scanning all {Total} replays", files.Count);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error during bulk replay scan");
+            }
+            finally
+            {
+                IsScanning = false;
+                await InvokeAsync(StateHasChanged);
+            }
+        });
     }
 }
