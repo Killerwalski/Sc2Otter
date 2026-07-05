@@ -113,14 +113,18 @@ def analyze_replay(replay_path, my_name=None):
                         
                     # 2. Proxy Detection (Terran / Protoss)
                     # Check distance from main base for early production structures
-                    if starting_loc and unit_name in ['Barracks', 'Gateway', 'Factory', 'Starport', 'RoboticsFacility', 'Stargate']:
+                    if starting_loc and unit_name in ['Barracks', 'Gateway', 'Factory', 'Starport', 'RoboticsFacility', 'Stargate', 'Forge', 'PhotonCannon']:
                         # Only care about early game proxies (first 6 minutes)
                         if time_sec < 360:
                             dist = math.hypot(event.location[0] - starting_loc[0], event.location[1] - starting_loc[1])
                             if dist > 55: # Usually Natural is ~25 away, 3rd is ~40 away. >55 is proxy territory.
                                 proxy_detected = True
-                                tag_name = f"Proxy {unit_name.replace('Barracks', 'Rax').replace('Gateway', 'Gate').replace('RoboticsFacility', 'Robo')}"
-                                if tag_name not in player_result["tags"]:
+                                tag_name = f"Proxy {unit_name.replace('Barracks', 'Rax').replace('Gateway', 'Gate').replace('RoboticsFacility', 'Robo').replace('PhotonCannon', 'Cannon')}"
+                                if unit_name == 'PhotonCannon' and "Cannon Rusher" not in player_result["tags"]:
+                                    player_result["tags"].append("Cheese")
+                                    player_result["tags"].append("Cannon Rusher")
+                                    player_result["notes"].append(f"Cannon rushed at {time_sec//60}:{time_sec%60:02d}")
+                                elif unit_name != 'PhotonCannon' and tag_name not in player_result["tags"]:
                                     player_result["tags"].append("Cheese")
                                     player_result["tags"].append(tag_name)
                                     player_result["notes"].append(f"Proxied {unit_name} at {time_sec//60}:{time_sec%60:02d}")
