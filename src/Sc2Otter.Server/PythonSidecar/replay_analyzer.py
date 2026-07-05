@@ -73,8 +73,8 @@ def analyze_replay(replay_path, my_name=None):
             
         print(json.dumps({
             "success": True, 
-            "map_name": replay.map_name,
-            "start_time": replay.start_time.isoformat(),
+            "mapName": replay.map_name,
+            "startTime": replay.start_time.isoformat(),
             "data": results
         }))
         
