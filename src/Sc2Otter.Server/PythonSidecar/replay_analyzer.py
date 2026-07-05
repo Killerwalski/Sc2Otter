@@ -53,15 +53,24 @@ def analyze_replay(replay_path, my_name=None):
             for unit in getattr(player, 'units', []):
                 if getattr(unit, 'hallucinated', False) or getattr(unit, 'is_building', False) or not unit.name:
                     continue
-                if unit.name in excludes:
+                
+                name = unit.name
+                if name.endswith('Burrowed'): name = name[:-8]
+                elif name == 'SiegeTankSieged': name = 'SiegeTank'
+                elif name == 'LiberatorAG': name = 'Liberator'
+                elif name == 'ThorAP': name = 'Thor'
+                elif name == 'VikingAssault': name = 'VikingFighter'
+                elif name == 'BattleHellion': name = 'Hellbat'
+                
+                if name in excludes:
                     continue
-                player_result["unitsMade"][unit.name] = player_result["unitsMade"].get(unit.name, 0) + 1
+                player_result["unitsMade"][name] = player_result["unitsMade"].get(name, 0) + 1
             
             # Find starting location
             starting_loc = None
             for event in replay.tracker_events:
                 if event.name == 'UnitBornEvent' and event.control_pid == player.pid and event.second == 0:
-                    if event.unit.name in ['CommandCenter', 'Nexus', 'Hatchery']:
+                    if event.unit.name in ['CommandCenter', 'Nexus', 'Hatchery', 'OrbitalCommand', 'PlanetaryFortress', 'Lair', 'Hive']:
                         starting_loc = event.location
                         break
                         
