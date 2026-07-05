@@ -88,7 +88,7 @@ public class ReplayAnalysisService(
                         continue;
                     }
 
-                    var opponent = await repo.GetOrCreateAsync(playerResult.Name, playerResult.Race, ct);
+                    var opponent = await repo.GetOrCreateAsync(playerResult.Name, playerResult.Race, result.StartTime, ct);
                     
                     foreach (var tag in playerResult.Tags)
                     {

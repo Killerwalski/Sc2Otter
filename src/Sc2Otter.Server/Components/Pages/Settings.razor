@@ -6,6 +6,7 @@
 @inject IServiceScopeFactory ScopeFactory
 @inject ReplayAnalysisService ReplayAnalyzer
 @inject ILogger<Settings> Logger
+@inject IJSRuntime JSRuntime
 
 <div class="page-header">
     <h1>Settings</h1>
@@ -130,6 +131,12 @@
         {
             <div style="color: var(--accent-success); font-weight: 500;">Settings saved successfully!</div>
         }
+        @if (!string.IsNullOrEmpty(WipeMessage))
+        {
+            <div style="color: @(WipeMessage.Contains("Failed") ? "var(--accent-danger)" : "var(--accent-success)"); font-weight: 500;">
+                @WipeMessage
+            </div>
+        }
         <button class="btn btn-primary" style="padding: 10px 24px;" @onclick="SaveSettings">Save All Settings</button>
     </div>
 </div>
@@ -139,6 +146,8 @@
     private bool ShowSaved = false;
     private bool IsScanning = false;
     private bool IsWiping = false;
+
+    private string WipeMessage = "";
 
     protected override void OnInitialized()
     {
@@ -157,8 +166,11 @@
 
     private async Task WipeDatabase()
     {
-        // Debug feature: just wipe it without JS interop confirm for now.
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to completely wipe the database? This cannot be undone.");
+        if (!confirmed) return;
+
         IsWiping = true;
+        WipeMessage = "";
         await InvokeAsync(StateHasChanged);
         try
         {
@@ -166,15 +178,24 @@
             var repo = scope.ServiceProvider.GetRequiredService<IOpponentRepository>();
             await repo.WipeDatabaseAsync();
             Logger.LogInformation("Database wiped successfully from UI.");
+            WipeMessage = "Database wiped successfully.";
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to wipe database");
+            WipeMessage = "Failed to wipe database.";
         }
         finally
         {
             IsWiping = false;
             await InvokeAsync(StateHasChanged);
+            
+            _ = Task.Run(async () => 
+            {
+                await Task.Delay(3000);
+                WipeMessage = "";
+                await InvokeAsync(StateHasChanged);
+            });
         }
     }
 

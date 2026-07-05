@@ -256,7 +256,7 @@ public class GameStateMonitor(
 
             newNames.Add(player.Name);
 
-            var opponent = await repo.GetOrCreateAsync(player.Name, player.Race, ct);
+            var opponent = await repo.GetOrCreateAsync(player.Name, player.Race, seenAt: null, ct: ct);
             newIds[player.Name] = opponent.Id;
 
             // Load full details for display

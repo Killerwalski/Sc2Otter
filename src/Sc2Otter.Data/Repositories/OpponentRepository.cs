@@ -13,13 +13,17 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
             .FirstOrDefaultAsync(o => EF.Functions.Like(o.Name, name), ct);
     }
 
-    public async Task<Opponent> GetOrCreateAsync(string name, string? race, CancellationToken ct = default)
+    public async Task<Opponent> GetOrCreateAsync(string name, string? race, DateTime? seenAt = null, CancellationToken ct = default)
     {
+        var time = seenAt ?? DateTime.UtcNow;
         var opponent = await FindByNameAsync(name, ct);
         if (opponent is not null)
         {
             if (race is not null) opponent.Race = race;
-            opponent.LastSeen = DateTime.UtcNow;
+            // Only update LastSeen if the new time is newer than the existing LastSeen
+            if (opponent.LastSeen < time) opponent.LastSeen = time;
+            // Only update FirstSeen if the new time is older than the existing FirstSeen
+            if (opponent.FirstSeen > time) opponent.FirstSeen = time;
             await db.SaveChangesAsync(ct);
             return opponent;
         }
@@ -28,8 +32,8 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
         {
             Name = name,
             Race = race,
-            FirstSeen = DateTime.UtcNow,
-            LastSeen = DateTime.UtcNow
+            FirstSeen = time,
+            LastSeen = time
         };
         db.Opponents.Add(opponent);
         await db.SaveChangesAsync(ct);
