@@ -195,6 +195,10 @@
             using var scope = ScopeFactory.CreateScope();
             var repo = scope.ServiceProvider.GetRequiredService<IOpponentRepository>();
             await repo.WipeDatabaseAsync();
+            
+            TempSettings.LastScanResult = "";
+            SettingsService.Update(TempSettings);
+            
             Logger.LogInformation("Database wiped successfully from UI.");
             WipeMessage = "Database wiped successfully.";
         }
