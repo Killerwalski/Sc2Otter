@@ -109,14 +109,14 @@ public class ReplayAnalysisService(
                         await repo.AddTagAsync(opponent.Id, result.GameMode, ct);
                     }
                     
+                    var ourResult = MatchResult.Unknown;
                     if (!string.IsNullOrWhiteSpace(playerResult.Result))
                     {
                         var opponentWon = playerResult.Result.Equals("Win", StringComparison.OrdinalIgnoreCase);
-                        // If the opponent won, our result is Loss. If opponent lost, our result is Win.
-                        var ourResult = opponentWon ? MatchResult.Loss : MatchResult.Win;
-                        
-                        await repo.RecordMatchAsync(opponent.Id, ourResult, result.MapName, null, playerResult.Race, result.GameMode, result.StartTime, ct);
+                        ourResult = opponentWon ? MatchResult.Loss : MatchResult.Win;
                     }
+                    
+                    await repo.RecordMatchAsync(opponent.Id, ourResult, result.MapName, null, playerResult.Race, result.GameMode, result.StartTime, ct);
                 }
                 return true;
             }

@@ -91,9 +91,6 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
         };
         db.Notes.Add(note);
 
-        var opponent = await db.Opponents.FindAsync([opponentId], ct);
-        if (opponent is not null) opponent.LastSeen = DateTime.UtcNow;
-
         await db.SaveChangesAsync(ct);
         return note;
     }
