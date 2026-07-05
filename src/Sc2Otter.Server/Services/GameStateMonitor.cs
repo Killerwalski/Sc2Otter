@@ -293,6 +293,8 @@ public class GameStateMonitor(
 
     private async Task HandlePostGame(Sc2GameResponse gameInfo, CancellationToken ct)
     {
+        _lastMapName ??= TryGetMapNameFromReplay();
+
         using var scope = scopeFactory.CreateScope();
         var repo = scope.ServiceProvider.GetRequiredService<IOpponentRepository>();
 
@@ -328,5 +330,53 @@ public class GameStateMonitor(
 
         // Notify UI of post-game
         await hubContext.Clients.All.SendAsync("PostGameResults", gameInfo.Players, ct);
+    }
+
+    private string? TryGetMapNameFromReplay()
+    {
+        try
+        {
+            var sc2Docs = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "StarCraft II", "Accounts");
+            if (!Directory.Exists(sc2Docs)) return null;
+
+            var replaysDir = new DirectoryInfo(sc2Docs);
+            FileInfo? latestReplay = null;
+
+            foreach (var accountDir in replaysDir.GetDirectories())
+            {
+                foreach (var profileDir in accountDir.GetDirectories())
+                {
+                    var multiDir = new DirectoryInfo(Path.Combine(profileDir.FullName, "Replays", "Multiplayer"));
+                    if (multiDir.Exists)
+                    {
+                        var recent = multiDir.GetFiles("*.SC2Replay")
+                            .OrderByDescending(f => f.LastWriteTimeUtc)
+                            .FirstOrDefault();
+
+                        if (recent != null && (latestReplay == null || recent.LastWriteTimeUtc > latestReplay.LastWriteTimeUtc))
+                        {
+                            latestReplay = recent;
+                        }
+                    }
+                }
+            }
+
+            // If the replay was created within the last 15 minutes, it's likely from the game that just ended
+            if (latestReplay != null && (DateTime.UtcNow - latestReplay.LastWriteTimeUtc).TotalMinutes < 15)
+            {
+                var name = Path.GetFileNameWithoutExtension(latestReplay.Name);
+                var match = System.Text.RegularExpressions.Regex.Match(name, @"^(.*?)( \(\d+\))?$");
+                if (match.Success)
+                {
+                    return match.Groups[1].Value.Trim();
+                }
+                return name;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to get map name from replays");
+        }
+        return null;
     }
 }
