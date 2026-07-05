@@ -22,6 +22,7 @@ builder.Services.AddDbContext<ScoutDbContext>(options =>
 // --- Services ---
 builder.Services.AddScoped<IOpponentRepository, OpponentRepository>();
 builder.Services.AddSingleton<SettingsService>();
+builder.Services.AddSingleton<ReplayAnalysisService>();
 
 builder.Services.AddHttpClient<ISc2GameClient, Sc2GameClient>(client =>
 {
@@ -90,6 +91,40 @@ app.MapStaticAssets();
 
 // SignalR hub
 app.MapHub<ScoutHub>("/scouthub");
+
+app.MapPost("/api/admin/scan-replays", (ReplayAnalysisService analyzer, ILogger<Program> logger) =>
+{
+    _ = Task.Run(async () => 
+    {
+        try
+        {
+            var replayDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "StarCraft II", "Accounts");
+            if (!Directory.Exists(replayDir)) return;
+
+            var cutoff = new DateTime(2026, 6, 30, 0, 0, 0, DateTimeKind.Utc);
+            
+            var files = Directory.GetFiles(replayDir, "*.SC2Replay", SearchOption.AllDirectories)
+                .Where(f => f.Contains("Multiplayer") && File.GetLastWriteTimeUtc(f) >= cutoff)
+                .ToList();
+                
+            logger.LogInformation("Found {Count} replays to scan since June 30, 2026", files.Count);
+            
+            int count = 0;
+            foreach (var file in files)
+            {
+                await analyzer.AnalyzeReplayAsync(file);
+                count++;
+                if (count % 10 == 0) logger.LogInformation("Scanned {Count}/{Total} replays...", count, files.Count);
+            }
+            logger.LogInformation("Finished scanning all {Total} replays", files.Count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error during bulk replay scan");
+        }
+    });
+    return Results.Accepted(value: "Background scan started. Check console logs for progress.");
+});
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

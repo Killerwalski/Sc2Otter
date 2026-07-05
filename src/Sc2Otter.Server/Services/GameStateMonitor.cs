@@ -330,9 +330,29 @@ public class GameStateMonitor(
 
         // Notify UI of post-game
         await hubContext.Clients.All.SendAsync("PostGameResults", gameInfo.Players, ct);
+        
+        // Analyze the replay! Give it a brief delay to ensure the file is written and unlocked by SC2
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(3000, ct); // Wait 3 seconds
+                var replayPath = TryGetLatestReplayPath();
+                if (replayPath != null)
+                {
+                    using var analysisScope = scopeFactory.CreateScope();
+                    var analyzer = analysisScope.ServiceProvider.GetRequiredService<ReplayAnalysisService>();
+                    await analyzer.AnalyzeReplayAsync(replayPath, ct);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to analyze replay post-game");
+            }
+        }, ct);
     }
 
-    private string? TryGetMapNameFromReplay()
+    private string? TryGetLatestReplayPath()
     {
         try
         {
@@ -361,22 +381,29 @@ public class GameStateMonitor(
                 }
             }
 
-            // If the replay was created within the last 15 minutes, it's likely from the game that just ended
             if (latestReplay != null && (DateTime.UtcNow - latestReplay.LastWriteTimeUtc).TotalMinutes < 15)
             {
-                var name = Path.GetFileNameWithoutExtension(latestReplay.Name);
-                var match = System.Text.RegularExpressions.Regex.Match(name, @"^(.*?)( \(\d+\))?$");
-                if (match.Success)
-                {
-                    return match.Groups[1].Value.Trim();
-                }
-                return name;
+                return latestReplay.FullName;
             }
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to get map name from replays");
+            logger.LogWarning(ex, "Failed to get latest replay path");
         }
         return null;
+    }
+
+    private string? TryGetMapNameFromReplay()
+    {
+        var path = TryGetLatestReplayPath();
+        if (path == null) return null;
+        
+        var name = Path.GetFileNameWithoutExtension(path);
+        var match = System.Text.RegularExpressions.Regex.Match(name, @"^(.*?)( \(\d+\))?$");
+        if (match.Success)
+        {
+            return match.Groups[1].Value.Trim();
+        }
+        return name;
     }
 }
