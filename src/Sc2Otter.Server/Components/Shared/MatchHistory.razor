@@ -11,11 +11,9 @@
         {
             <div class="match-item">
                 <span class="match-result @match.Result.ToString().ToLower()">@FormatResult(match.Result)</span>
-                <span class="match-map">@(match.MapName ?? "Unknown Map")</span>
-                @if (!string.IsNullOrEmpty(match.GameMode))
-                {
-                    <span class="match-mode">@match.GameMode</span>
-                }
+                <span class="match-map">
+                    @(match.MapName ?? "Unknown Map")@(string.IsNullOrEmpty(match.GameMode) ? "" : $" ({match.GameMode})")
+                </span>
                 <span class="match-date">@match.PlayedAt.ToLocalTime().ToString("MMM d, h:mm tt")</span>
             </div>
         }
