@@ -24,6 +24,7 @@ def analyze_replay(replay_path, my_name=None):
                 "result": player.result,
                 "tags": [],
                 "notes": [],
+                "unitsMade": {},
                 "stats": {
                     "workersCreated": 0,
                     "supplyBlockTime": 0,
@@ -35,6 +36,26 @@ def analyze_replay(replay_path, my_name=None):
             # Check if they picked random
             if hasattr(player, 'pick_race') and player.pick_race == 'Random':
                 player_result["tags"].append("Random")
+                
+            # Count units
+            excludes = {
+                'Overlord', 'Overseer', 'OverlordTransport', 
+                'Larva', 'Egg', 'Broodling', 'BanelingCocoon', 'RavagerCocoon', 'OverlordCocoon', 'LurkerMPEgg',
+                'LocustMP', 'LocustMPFlying', 'Interceptor', 'AutoTurret',
+                'MULE', 'PointDefenseDrone', 'Changeling', 'ChangelingMarine', 'ChangelingMarineShield', 
+                'ChangelingZealot', 'ChangelingZergling', 'ChangelingZerglingWings',
+                'BeaconArmy', 'BeaconDefend', 'BeaconAttack', 'BeaconHarass', 'BeaconIdle', 'BeaconAuto', 
+                'BeaconDetect', 'BeaconScout', 'BeaconClaim', 'BeaconExpand', 'BeaconRally', 
+                'BeaconCustom1', 'BeaconCustom2', 'BeaconCustom3', 'BeaconCustom4',
+                'CreepTumor', 'CreepTumorBurrowed', 'CreepTumorQueen', 'OracleStasisTrap',
+                'KD8Charge', 'ParasiticBombDummy', 'AdeptPhaseShift', 'DisruptorPhased'
+            }
+            for unit in getattr(player, 'units', []):
+                if getattr(unit, 'hallucinated', False) or getattr(unit, 'is_building', False) or not unit.name:
+                    continue
+                if unit.name in excludes:
+                    continue
+                player_result["unitsMade"][unit.name] = player_result["unitsMade"].get(unit.name, 0) + 1
             
             # Find starting location
             starting_loc = None

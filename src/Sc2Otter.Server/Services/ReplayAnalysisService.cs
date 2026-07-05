@@ -118,7 +118,7 @@ public class ReplayAnalysisService(
                         ourResult = opponentWon ? MatchResult.Loss : MatchResult.Win;
                     }
                     
-                    await repo.RecordMatchAsync(opponent.Id, ourResult, result.MapName, null, playerResult.Race, result.GameMode, result.StartTime, match => {
+                    await repo.RecordMatchAsync(opponent.Id, ourResult, result.MapName, myResult?.Race, playerResult.Race, result.GameMode, result.StartTime, match => {
                         if (myResult?.Stats != null)
                         {
                             match.MyWorkersCreated = myResult.Stats.WorkersCreated;
@@ -126,12 +126,20 @@ public class ReplayAnalysisService(
                             match.MyAvgUnspentMinerals = myResult.Stats.AvgUnspentMinerals;
                             match.MyAvgMineralIncome = myResult.Stats.AvgMineralIncome;
                         }
+                        if (myResult?.UnitsMade != null)
+                        {
+                            match.MyUnitsMade = JsonSerializer.Serialize(myResult.UnitsMade);
+                        }
                         if (playerResult.Stats != null)
                         {
                             match.OpponentWorkersCreated = playerResult.Stats.WorkersCreated;
                             match.OpponentSupplyBlockTime = playerResult.Stats.SupplyBlockTime;
                             match.OpponentAvgUnspentMinerals = playerResult.Stats.AvgUnspentMinerals;
                             match.OpponentAvgMineralIncome = playerResult.Stats.AvgMineralIncome;
+                        }
+                        if (playerResult.UnitsMade != null)
+                        {
+                            match.OpponentUnitsMade = JsonSerializer.Serialize(playerResult.UnitsMade);
                         }
                     }, ct);
                 }
@@ -162,6 +170,7 @@ public class ReplayAnalysisService(
         public string? Result { get; set; }
         public List<string> Tags { get; set; } = [];
         public List<string> Notes { get; set; } = [];
+        public Dictionary<string, int>? UnitsMade { get; set; }
         public PlayerStatsResult? Stats { get; set; }
     }
 

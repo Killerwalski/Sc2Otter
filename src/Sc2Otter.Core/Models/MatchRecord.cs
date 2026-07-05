@@ -27,5 +27,8 @@ public class MatchRecord
     public int? MyAvgMineralIncome { get; set; }
     public int? OpponentAvgMineralIncome { get; set; }
 
+    public string? MyUnitsMade { get; set; }
+    public string? OpponentUnitsMade { get; set; }
+
     public Opponent Opponent { get; set; } = null!;
 }

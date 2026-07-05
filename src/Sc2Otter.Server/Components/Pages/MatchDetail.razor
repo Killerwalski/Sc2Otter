@@ -81,15 +81,67 @@ else
                      Format="s"
                      LowerIsBetter="true" />
         </div>
+
+        <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border-color);">
+            <h3 style="text-align: center; color: var(--text-muted); margin-bottom: 24px;">Units Made</h3>
+            <div class="units-comparison" style="display: flex; gap: 40px;">
+                <div class="units-column you" style="flex: 1;">
+                    @if (MyUnits != null && MyUnits.Any())
+                    {
+                        <table class="units-table" style="width: 100%; text-align: left; font-size: 14px;">
+                            <tbody>
+                                @foreach (var unit in MyUnits.OrderByDescending(k => k.Value))
+                                {
+                                    <tr>
+                                        <td style="padding: 4px 0; color: var(--text-muted);">@unit.Key</td>
+                                        <td style="padding: 4px 0; text-align: right; font-weight: 500; color: var(--accent-primary);">@unit.Value</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+                
+                <div class="units-column opponent" style="flex: 1;">
+                    @if (OpponentUnits != null && OpponentUnits.Any())
+                    {
+                        <table class="units-table" style="width: 100%; text-align: left; font-size: 14px;">
+                            <tbody>
+                                @foreach (var unit in OpponentUnits.OrderByDescending(k => k.Value))
+                                {
+                                    <tr>
+                                        <td style="padding: 4px 0; color: var(--text-muted);">@unit.Key</td>
+                                        <td style="padding: 4px 0; text-align: right; font-weight: 500; color: var(--accent-secondary);">@unit.Value</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        </div>
     </div>
 }
 
 @code {
     [Parameter] public int Id { get; set; }
     private MatchRecord? Match { get; set; }
+    private Dictionary<string, int>? MyUnits;
+    private Dictionary<string, int>? OpponentUnits;
 
     protected override async Task OnParametersSetAsync()
     {
         Match = await Repo.GetMatchByIdAsync(Id);
+        if (Match != null)
+        {
+            if (!string.IsNullOrEmpty(Match.MyUnitsMade))
+            {
+                MyUnits = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, int>>(Match.MyUnitsMade);
+            }
+            if (!string.IsNullOrEmpty(Match.OpponentUnitsMade))
+            {
+                OpponentUnits = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, int>>(Match.OpponentUnitsMade);
+            }
+        }
     }
 }
