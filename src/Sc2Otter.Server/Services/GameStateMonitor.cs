@@ -278,7 +278,7 @@ public class GameStateMonitor(
                 Race: player.Race,
                 GameMode: gameMode,
                 Notes: details?.Notes.Select(n => new OpponentNoteDto(n.Id, n.Content, n.CreatedAt, n.Source)).ToList() ?? [],
-                Tags: details?.Tags.Select(t => t.Name).ToList() ?? [],
+                Tags: details?.TagAssignments.Select(ta => ta.Count > 1 ? $"{ta.Tag.Name} x{ta.Count}" : ta.Tag.Name).ToList() ?? [],
                 TotalGames: stats.TotalGames,
                 Wins: stats.Wins,
                 Losses: stats.Losses);

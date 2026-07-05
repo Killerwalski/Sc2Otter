@@ -11,4 +11,5 @@ public class Opponent
     public ICollection<OpponentNote> Notes { get; set; } = new List<OpponentNote>();
     public ICollection<MatchRecord> MatchRecords { get; set; } = new List<MatchRecord>();
     public ICollection<OpponentTag> Tags { get; set; } = new List<OpponentTag>();
+    public ICollection<OpponentTagAssignment> TagAssignments { get; set; } = new List<OpponentTagAssignment>();
 }

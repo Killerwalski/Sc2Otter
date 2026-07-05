@@ -7,4 +7,5 @@ public class OpponentTag
     public string? Color { get; set; }
 
     public ICollection<Opponent> Opponents { get; set; } = new List<Opponent>();
+    public ICollection<OpponentTagAssignment> TagAssignments { get; set; } = new List<OpponentTagAssignment>();
 }

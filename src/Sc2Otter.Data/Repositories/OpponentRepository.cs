@@ -9,7 +9,7 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
     public async Task<Opponent?> FindByNameAsync(string name, CancellationToken ct = default)
     {
         return await db.Opponents
-            .Include(o => o.Tags)
+            .Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag)
             .FirstOrDefaultAsync(o => EF.Functions.Like(o.Name, name), ct);
     }
 
@@ -49,14 +49,14 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
     {
         return await db.Opponents
             .Include(o => o.Notes.OrderByDescending(n => n.CreatedAt))
-            .Include(o => o.Tags)
+            .Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag)
             .Include(o => o.MatchRecords.OrderByDescending(m => m.PlayedAt))
             .FirstOrDefaultAsync(o => o.Id == id, ct);
     }
 
     public async Task<List<Opponent>> SearchAsync(string? query = null, string? raceFilter = null, string? tagFilter = null, CancellationToken ct = default)
     {
-        var q = db.Opponents.Include(o => o.Tags).AsQueryable();
+        var q = db.Opponents.Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag).AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(query))
             q = q.Where(o => EF.Functions.Like(o.Name, $"%{query}%"));
@@ -65,7 +65,7 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
             q = q.Where(o => o.Race == raceFilter);
 
         if (!string.IsNullOrWhiteSpace(tagFilter))
-            q = q.Where(o => o.Tags.Any(t => t.Name == tagFilter));
+            q = q.Where(o => o.TagAssignments.Any(ta => ta.Tag.Name == tagFilter));
 
         return await q.OrderByDescending(o => o.LastSeen).ToListAsync(ct);
     }
@@ -73,7 +73,7 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
     public async Task<List<Opponent>> GetRecentAsync(int count = 10, CancellationToken ct = default)
     {
         return await db.Opponents
-            .Include(o => o.Tags)
+            .Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag)
             .Include(o => o.MatchRecords)
             .OrderByDescending(o => o.LastSeen)
             .Take(count)
@@ -114,7 +114,7 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
 
     public async Task AddTagAsync(int opponentId, string tagName, CancellationToken ct = default)
     {
-        var opponent = await db.Opponents.Include(o => o.Tags).FirstOrDefaultAsync(o => o.Id == opponentId, ct);
+        var opponent = await db.Opponents.Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag).FirstOrDefaultAsync(o => o.Id == opponentId, ct);
         if (opponent is null) return;
 
         var tag = await db.Tags.FirstOrDefaultAsync(t => t.Name == tagName, ct);
@@ -124,22 +124,28 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
             db.Tags.Add(tag);
         }
 
-        if (!opponent.Tags.Any(t => t.Name == tagName))
+        var assignment = opponent.TagAssignments.FirstOrDefault(ta => ta.Tag.Name == tagName);
+        if (assignment is null)
         {
-            opponent.Tags.Add(tag);
+            opponent.TagAssignments.Add(new OpponentTagAssignment { Tag = tag, Count = 1 });
+            await db.SaveChangesAsync(ct);
+        }
+        else
+        {
+            assignment.Count++;
             await db.SaveChangesAsync(ct);
         }
     }
 
     public async Task RemoveTagAsync(int opponentId, string tagName, CancellationToken ct = default)
     {
-        var opponent = await db.Opponents.Include(o => o.Tags).FirstOrDefaultAsync(o => o.Id == opponentId, ct);
+        var opponent = await db.Opponents.Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag).FirstOrDefaultAsync(o => o.Id == opponentId, ct);
         if (opponent is null) return;
 
-        var tag = opponent.Tags.FirstOrDefault(t => t.Name == tagName);
-        if (tag is not null)
+        var assignment = opponent.TagAssignments.FirstOrDefault(ta => ta.Tag.Name == tagName);
+        if (assignment is not null)
         {
-            opponent.Tags.Remove(tag);
+            opponent.TagAssignments.Remove(assignment);
             await db.SaveChangesAsync(ct);
         }
     }

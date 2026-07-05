@@ -41,6 +41,16 @@ def analyze_replay(replay_path, my_name=None):
             first_prod_time = 9999
             first_exp_time = 9999
             
+            mutalisk_count = 0
+            factory_units = 0
+            bio_units = 0
+            reaper_count = 0
+            bc_count = 0
+            warp_prism_count = 0
+            nydus_count = 0
+            dark_shrine_time = 9999
+            bc_first_time = 9999
+            
             for event in replay.tracker_events:
                 if event.name == 'UnitInitEvent' and event.control_pid == player.pid:
                     unit_name = event.unit.name
@@ -74,6 +84,33 @@ def analyze_replay(replay_path, my_name=None):
                                     player_result["tags"].append("Cheese")
                                     player_result["tags"].append(tag_name)
                                     player_result["notes"].append(f"Proxied {unit_name} at {time_sec//60}:{time_sec%60:02d}")
+                elif event.name == 'UnitBornEvent' and event.control_pid == player.pid:
+                    unit_name = event.unit.name
+                    time_sec = event.second
+                    
+                    if unit_name == 'Mutalisk':
+                        mutalisk_count += 1
+                    elif unit_name in ['Marine', 'Marauder']:
+                        bio_units += 1
+                    elif unit_name in ['Hellion', 'Hellbat', 'Cyclone', 'SiegeTank', 'Thor', 'WidowMine']:
+                        factory_units += 1
+                    elif unit_name == 'Reaper':
+                        reaper_count += 1
+                    elif unit_name == 'WarpPrism':
+                        warp_prism_count += 1
+                    elif unit_name == 'Battlecruiser':
+                        bc_count += 1
+                        if time_sec < bc_first_time:
+                            bc_first_time = time_sec
+                elif event.name == 'UnitInitEvent' and event.control_pid == player.pid:
+                    unit_name = event.unit.name
+                    time_sec = event.second
+                    
+                    if unit_name == 'NydusNetwork':
+                        nydus_count += 1
+                    elif unit_name == 'DarkShrine':
+                        if time_sec < dark_shrine_time:
+                            dark_shrine_time = time_sec
                                     
             # 3. Expansion First Detection
             if first_exp_time < first_prod_time and first_exp_time < 300:
@@ -89,6 +126,28 @@ def analyze_replay(replay_path, my_name=None):
                     if "CC First" not in player_result["tags"]:
                         player_result["tags"].append("CC First")
                         player_result["notes"].append(f"Built Command Center before Barracks ({first_exp_time//60}:{first_exp_time%60:02d})")
+                        
+            # 4. Unit Composition / Other Tags
+            if mutalisk_count > 8:
+                player_result["tags"].append("Mutas")
+            if reaper_count > 1:
+                player_result["tags"].append("Multi reaper")
+            if warp_prism_count > 0:
+                player_result["tags"].append("Warp prism")
+            if nydus_count > 0:
+                player_result["tags"].append("Nydus Network")
+            if bc_count > 1:
+                player_result["tags"].append("Battlecruiser")
+            if bc_first_time < 420: # 7 minutes
+                player_result["tags"].append("Fast BCs")
+            if dark_shrine_time < 420: # 7 minutes
+                player_result["tags"].append("Fast DTs")
+                
+            if player.play_race == 'Terran':
+                if factory_units > (bio_units + 5) and factory_units > 10:
+                    player_result["tags"].append("Mech")
+                elif bio_units > (factory_units * 2) and bio_units > 15:
+                    player_result["tags"].append("Bio player")
                                     
             results.append(player_result)
             

@@ -19,7 +19,11 @@ public class ScoutDbContext(DbContextOptions<ScoutDbContext> options) : DbContex
             entity.HasIndex(e => e.Name);
             entity.HasMany(e => e.Notes).WithOne(n => n.Opponent).HasForeignKey(n => n.OpponentId).OnDelete(DeleteBehavior.Cascade);
             entity.HasMany(e => e.MatchRecords).WithOne(m => m.Opponent).HasForeignKey(m => m.OpponentId).OnDelete(DeleteBehavior.Cascade);
-            entity.HasMany(e => e.Tags).WithMany(t => t.Opponents);
+            entity.HasMany(e => e.Tags).WithMany(t => t.Opponents)
+                .UsingEntity<OpponentTagAssignment>(
+                    j => j.HasOne(e => e.Tag).WithMany(t => t.TagAssignments).HasForeignKey(e => e.TagId),
+                    j => j.HasOne(e => e.Opponent).WithMany(o => o.TagAssignments).HasForeignKey(e => e.OpponentId)
+                );
         });
 
         modelBuilder.Entity<OpponentNote>(entity =>
