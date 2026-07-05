@@ -68,10 +68,33 @@ else
                                 var isMe = myNames.Contains(player.Name);
                                 <div class="units-column you" style="flex: 1; min-width: 200px;">
                                     <h4 style="margin-bottom: 12px; color: var(--text-primary);">
-                                    @(isMe ? $"You ({player.Name})" : player.Name) 
-                                    <span style="color: var(--text-muted); font-size: 12px; margin-left: 8px;">@player.Race</span>
-                                </h4>
-                                @if (player.UnitsMade != null && player.UnitsMade.Any())
+                                        @(isMe ? $"You ({player.Name})" : player.Name) 
+                                        <span style="color: var(--text-muted); font-size: 12px; margin-left: 8px;">@player.Race</span>
+                                    </h4>
+                                    
+                                    @if (player.Stats != null)
+                                    {
+                                        <div style="margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border-color); font-size: 13px;">
+                                            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                                                <span style="color: var(--text-muted);">Workers Created</span>
+                                                <span style="font-weight: 500; color: var(--text-primary);">@player.Stats.WorkersCreated</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                                                <span style="color: var(--text-muted);">Avg Unspent</span>
+                                                <span style="font-weight: 500; color: var(--text-primary);">@player.Stats.AvgUnspentMinerals</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                                                <span style="color: var(--text-muted);">Avg Income</span>
+                                                <span style="font-weight: 500; color: var(--text-primary);">@player.Stats.AvgMineralIncome</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                                                <span style="color: var(--text-muted);">Supply Blocked</span>
+                                                <span style="font-weight: 500; color: var(--text-primary);">@(player.Stats.SupplyBlockTime)s</span>
+                                            </div>
+                                        </div>
+                                    }
+
+                                    @if (player.UnitsMade != null && player.UnitsMade.Any())
                                 {
                                     <table class="units-table" style="width: 100%; text-align: left; font-size: 14px;">
                                         <tbody>
@@ -102,10 +125,33 @@ else
                             {
                                 <div class="units-column opponent" style="flex: 1; min-width: 200px;">
                                     <h4 style="margin-bottom: 12px; color: var(--text-primary);">
-                                    @player.Name 
-                                    <span style="color: var(--text-muted); font-size: 12px; margin-left: 8px;">@player.Race</span>
-                                </h4>
-                                @if (player.UnitsMade != null && player.UnitsMade.Any())
+                                        @player.Name 
+                                        <span style="color: var(--text-muted); font-size: 12px; margin-left: 8px;">@player.Race</span>
+                                    </h4>
+
+                                    @if (player.Stats != null)
+                                    {
+                                        <div style="margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border-color); font-size: 13px;">
+                                            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                                                <span style="color: var(--text-muted);">Workers Created</span>
+                                                <span style="font-weight: 500; color: var(--text-primary);">@player.Stats.WorkersCreated</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                                                <span style="color: var(--text-muted);">Avg Unspent</span>
+                                                <span style="font-weight: 500; color: var(--text-primary);">@player.Stats.AvgUnspentMinerals</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                                                <span style="color: var(--text-muted);">Avg Income</span>
+                                                <span style="font-weight: 500; color: var(--text-primary);">@player.Stats.AvgMineralIncome</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                                                <span style="color: var(--text-muted);">Supply Blocked</span>
+                                                <span style="font-weight: 500; color: var(--text-primary);">@(player.Stats.SupplyBlockTime)s</span>
+                                            </div>
+                                        </div>
+                                    }
+
+                                    @if (player.UnitsMade != null && player.UnitsMade.Any())
                                 {
                                     <table class="units-table" style="width: 100%; text-align: left; font-size: 14px;">
                                         <tbody>
