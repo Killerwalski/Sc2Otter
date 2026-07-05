@@ -91,8 +91,17 @@
         </div>
         <div class="setting-row" style="margin-top: 15px;">
             <div>
+                <div class="setting-label">Bulk Scan Cutoff Date</div>
+                <div class="setting-description">Recommended to use the last major SC2 patch date</div>
+            </div>
+            <div>
+                <input type="date" class="form-control" style="width: 200px; background: var(--bg-tertiary); color: white; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 4px;" @bind="TempSettings.BulkScanCutoffDate" />
+            </div>
+        </div>
+        <div class="setting-row" style="margin-top: 15px;">
+            <div>
                 <div class="setting-label">Bulk Scan Replays</div>
-                <div class="setting-description">Scans all replays in directory since June 30, 2026</div>
+                <div class="setting-description">Scans all replays in directory since the cutoff date</div>
             </div>
             <div>
                 <button class="btn btn-secondary" style="padding: 6px 12px;" @onclick="StartBulkScan" disabled="@IsScanning">
@@ -219,7 +228,7 @@
                     return;
                 }
 
-                var cutoff = new DateTime(2026, 6, 30, 0, 0, 0, DateTimeKind.Utc);
+                var cutoff = SettingsService.Current.BulkScanCutoffDate;
                 var files = Directory.GetFiles(replayDir, "*.SC2Replay", SearchOption.AllDirectories)
                     .Where(f => f.Contains("Multiplayer") && File.GetLastWriteTimeUtc(f) >= cutoff)
                     .ToList();

@@ -101,13 +101,13 @@ app.MapPost("/api/admin/scan-replays", (ReplayAnalysisService analyzer, Settings
             var replayDir = settingsService.Current.ReplayDirectory;
             if (!Directory.Exists(replayDir)) return;
 
-            var cutoff = new DateTime(2026, 6, 30, 0, 0, 0, DateTimeKind.Utc);
+            var cutoff = settingsService.Current.BulkScanCutoffDate;
             
             var files = Directory.GetFiles(replayDir, "*.SC2Replay", SearchOption.AllDirectories)
                 .Where(f => f.Contains("Multiplayer") && File.GetLastWriteTimeUtc(f) >= cutoff)
                 .ToList();
                 
-            logger.LogInformation("Found {Count} replays to scan since June 30, 2026", files.Count);
+            logger.LogInformation("Found {Count} replays to scan since {Date}", files.Count, cutoff.ToString("yyyy-MM-dd"));
             
             int count = 0;
             foreach (var file in files)

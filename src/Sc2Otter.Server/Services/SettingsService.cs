@@ -10,6 +10,7 @@ public class UserSettings
     public string HotkeyChar { get; set; } = "N";
     public int PollingIntervalMs { get; set; } = 2000;
     public string ReplayDirectory { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "StarCraft II", "Accounts");
+    public DateTime BulkScanCutoffDate { get; set; } = new DateTime(2026, 6, 30);
     
     public UserSettings Clone() => (UserSettings)MemberwiseClone();
 }
