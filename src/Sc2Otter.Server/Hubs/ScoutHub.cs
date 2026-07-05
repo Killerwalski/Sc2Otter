@@ -89,7 +89,9 @@ public class ScoutHub(IServiceScopeFactory scopeFactory, ILogger<ScoutHub> logge
                 Tags: opponent.Tags.Select(t => t.Name).ToList(),
                 TotalGames: stats.TotalGames,
                 Wins: stats.Wins,
-                Losses: stats.Losses));
+                Losses: stats.Losses,
+                Mmr: opponent.Mmr,
+                League: opponent.League));
         }
 
         return results;

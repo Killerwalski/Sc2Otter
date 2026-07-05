@@ -7,6 +7,8 @@ public class Opponent
     public string? Race { get; set; }
     public DateTime FirstSeen { get; set; } = DateTime.UtcNow;
     public DateTime LastSeen { get; set; } = DateTime.UtcNow;
+    public int? Mmr { get; set; }
+    public string? League { get; set; }
 
     public ICollection<OpponentNote> Notes { get; set; } = new List<OpponentNote>();
     public ICollection<MatchRecord> MatchRecords { get; set; } = new List<MatchRecord>();

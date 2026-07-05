@@ -11,6 +11,7 @@ public class GameStateMonitor(
     IServiceScopeFactory scopeFactory,
     IHubContext<ScoutHub> hubContext,
     SettingsService settings,
+    Sc2PulseClient sc2PulseClient,
     ILogger<GameStateMonitor> logger) : BackgroundService
 {
     private Sc2GameState _currentState = Sc2GameState.WaitingForSc2;
@@ -271,6 +272,18 @@ public class GameStateMonitor(
             // Load full details for display
             var details = await repo.GetWithDetailsAsync(opponent.Id, ct);
             var stats = await repo.GetStatsAsync(opponent.Id, ct);
+            
+            // Try fetching MMR if we don't have it saved recently
+            if (!opponent.Mmr.HasValue || (DateTime.UtcNow - opponent.LastSeen).TotalDays > 1)
+            {
+                var (mmr, league) = await sc2PulseClient.GetOpponentMmrAsync(player.Name, ct);
+                if (mmr.HasValue)
+                {
+                    opponent.Mmr = mmr;
+                    opponent.League = league;
+                    await repo.UpdateOpponentAsync(opponent, ct);
+                }
+            }
 
             var opponentEvent = new OpponentDetectedEvent(
                 OpponentId: opponent.Id,
@@ -281,7 +294,9 @@ public class GameStateMonitor(
                 Tags: details?.TagAssignments.Select(ta => ta.Count > 1 ? $"{ta.Tag.Name} x{ta.Count}" : ta.Tag.Name).ToList() ?? [],
                 TotalGames: stats.TotalGames,
                 Wins: stats.Wins,
-                Losses: stats.Losses);
+                Losses: stats.Losses,
+                Mmr: opponent.Mmr,
+                League: opponent.League);
 
             detectedOpponents.Add(opponentEvent);
 

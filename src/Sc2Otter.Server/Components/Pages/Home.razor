@@ -33,6 +33,13 @@
                         <span class="opponent-name">@opp.Name</span>
                         <span class="opponent-race">@(opp.Race ?? "Unknown")</span>
                     </div>
+                    @if (opp.Mmr.HasValue)
+                    {
+                        <div style="font-size: 13px; font-weight: 600; padding: 6px 10px; border-radius: 4px; background: rgba(255,255,255,0.05); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: var(--text-muted)">Peak Rating</span>
+                            <span style="color: var(--text-primary)">@opp.Mmr MMR <span style="opacity: 0.7; font-weight: normal; margin-left: 4px;">(@opp.League)</span></span>
+                        </div>
+                    }
 
                     <div class="opponent-stats">
                         <div class="stat">

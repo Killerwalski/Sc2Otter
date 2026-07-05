@@ -30,6 +30,8 @@ builder.Services.AddHttpClient<ISc2GameClient, Sc2GameClient>(client =>
     client.Timeout = TimeSpan.FromSeconds(3);
 });
 
+builder.Services.AddHttpClient<Sc2PulseClient>();
+
 // Background services
 builder.Services.AddHostedService<GameStateMonitor>();
 builder.Services.AddHostedService<HotkeyService>();

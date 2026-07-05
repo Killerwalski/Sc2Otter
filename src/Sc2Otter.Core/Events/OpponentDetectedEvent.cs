@@ -11,4 +11,6 @@ public record OpponentDetectedEvent(
     List<string> Tags,
     int TotalGames,
     int Wins,
-    int Losses);
+    int Losses,
+    int? Mmr,
+    string? League);

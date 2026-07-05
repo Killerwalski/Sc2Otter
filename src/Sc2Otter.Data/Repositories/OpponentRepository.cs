@@ -49,9 +49,15 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
     {
         return await db.Opponents
             .Include(o => o.Notes.OrderByDescending(n => n.CreatedAt))
+            .Include(o => o.MatchRecords.OrderByDescending(m => m.PlayedAt).Take(5))
             .Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag)
-            .Include(o => o.MatchRecords.OrderByDescending(m => m.PlayedAt))
             .FirstOrDefaultAsync(o => o.Id == id, ct);
+    }
+
+    public async Task UpdateOpponentAsync(Opponent opponent, CancellationToken ct = default)
+    {
+        db.Opponents.Update(opponent);
+        await db.SaveChangesAsync(ct);
     }
 
     public async Task<List<Opponent>> SearchAsync(string? query = null, string? raceFilter = null, string? tagFilter = null, string? modeFilter = null, CancellationToken ct = default)
