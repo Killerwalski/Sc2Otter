@@ -3,6 +3,7 @@ namespace Sc2Otter.Server.Services;
 using System.Diagnostics;
 using System.Text.Json;
 using Sc2Otter.Core.Interfaces;
+using Sc2Otter.Core.Models;
 
 public class ReplayAnalysisService(
     IServiceScopeFactory scopeFactory,
