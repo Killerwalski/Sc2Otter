@@ -38,10 +38,19 @@ def analyze_replay(replay_path, my_name=None):
             fast_pool_detected = False
             proxy_detected = False
             
+            first_prod_time = 9999
+            first_exp_time = 9999
+            
             for event in replay.tracker_events:
                 if event.name == 'UnitInitEvent' and event.control_pid == player.pid:
                     unit_name = event.unit.name
                     time_sec = event.second
+                    
+                    if unit_name in ['SpawningPool', 'Gateway', 'Barracks'] and time_sec < first_prod_time:
+                        first_prod_time = time_sec
+                        
+                    if unit_name in ['Hatchery', 'Nexus', 'CommandCenter'] and time_sec < first_exp_time:
+                        first_exp_time = time_sec
                     
                     # 1. Fast Pool Detection (Zerg)
                     # 14 pool is usually started around 1:00-1:05
@@ -65,6 +74,21 @@ def analyze_replay(replay_path, my_name=None):
                                     player_result["tags"].append("Cheese")
                                     player_result["tags"].append(tag_name)
                                     player_result["notes"].append(f"Proxied {unit_name} at {time_sec//60}:{time_sec%60:02d}")
+                                    
+            # 3. Expansion First Detection
+            if first_exp_time < first_prod_time and first_exp_time < 300:
+                if player.play_race == 'Zerg':
+                    if "Hatchery First" not in player_result["tags"]:
+                        player_result["tags"].append("Hatchery First")
+                        player_result["notes"].append(f"Built Hatchery before Spawning Pool ({first_exp_time//60}:{first_exp_time%60:02d})")
+                elif player.play_race == 'Protoss':
+                    if "Nexus First" not in player_result["tags"]:
+                        player_result["tags"].append("Nexus First")
+                        player_result["notes"].append(f"Built Nexus before Gateway ({first_exp_time//60}:{first_exp_time%60:02d})")
+                elif player.play_race == 'Terran':
+                    if "CC First" not in player_result["tags"]:
+                        player_result["tags"].append("CC First")
+                        player_result["notes"].append(f"Built Command Center before Barracks ({first_exp_time//60}:{first_exp_time%60:02d})")
                                     
             results.append(player_result)
             
