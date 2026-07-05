@@ -161,7 +161,7 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
         return await db.Tags.OrderBy(t => t.Name).ToListAsync(ct);
     }
 
-    public async Task<MatchRecord> RecordMatchAsync(int opponentId, MatchResult result, string? mapName = null, string? myRace = null, string? opponentRace = null, string? gameMode = null, DateTime? playedAt = null, Action<MatchRecord>? updateStats = null, CancellationToken ct = default)
+    public async Task<MatchRecord> RecordMatchAsync(int opponentId, MatchResult result, string? mapName = null, string? myRace = null, string? opponentRace = null, string? gameMode = null, DateTime? playedAt = null, string? fullMatchData = null, Action<MatchRecord>? updateStats = null, CancellationToken ct = default)
     {
         var recordTime = playedAt ?? DateTime.UtcNow;
         var record = new MatchRecord
@@ -172,7 +172,8 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
             MyRace = myRace,
             OpponentRace = opponentRace,
             GameMode = gameMode,
-            PlayedAt = recordTime
+            PlayedAt = recordTime,
+            FullMatchData = fullMatchData
         };
         
         updateStats?.Invoke(record);

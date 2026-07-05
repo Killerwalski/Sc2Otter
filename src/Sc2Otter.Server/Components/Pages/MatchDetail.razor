@@ -3,7 +3,9 @@
 @using Sc2Otter.Core.Models
 @using Sc2Otter.Core.Interfaces
 @using Sc2Otter.Server.Components.Shared
+@using Sc2Otter.Server.Services
 @inject IOpponentRepository Repo
+@inject SettingsService Settings
 @inject NavigationManager Navigation
 
 @if (Match is null)
@@ -42,85 +44,180 @@ else
         </div>
     </div>
 
-    <div class="card match-stats-card" style="margin-top: 24px;">
-        <div class="stats-comparison">
-            <div class="stats-column you">
-                <h3>You</h3>
-                <div class="stats-race">@(Match.MyRace ?? "Unknown")</div>
-            </div>
-            
-            <div class="stats-column middle">
-                <h3>VS</h3>
+    @if (AllPlayers != null && AllPlayers.Count > 0)
+    {
+        var myNames = GetMyNames();
+        var friendlyPlayer = AllPlayers.FirstOrDefault(p => myNames.Contains(p.Name));
+        var friendlyResult = friendlyPlayer?.Result ?? "Win"; // Default to grouping by Win if we can't find friendly
+        
+        var friendlyTeam = AllPlayers.Where(p => p.Result == friendlyResult).ToList();
+        var enemyTeam = AllPlayers.Where(p => p.Result != friendlyResult).ToList();
+
+        <div class="card match-stats-card" style="margin-top: 24px;">
+            <!-- Legacy Stats Comparison block, now we can skip it or show it for friendly vs enemy -->
+            <div class="stats-comparison">
+                <div class="stats-column you">
+                    <h3>Your Team</h3>
+                </div>
+                <div class="stats-column middle">
+                    <h3>VS</h3>
+                </div>
+                <div class="stats-column opponent">
+                    <h3>Opponent Team</h3>
+                </div>
             </div>
 
-            <div class="stats-column opponent">
-                <h3>@Match.Opponent.Name</h3>
-                <div class="stats-race">@(Match.OpponentRace ?? "Unknown")</div>
-            </div>
-        </div>
-
-        <div class="stats-metrics">
-            <StatRow Label="Workers Created" 
-                     MyValue="@Match.MyWorkersCreated" 
-                     OpponentValue="@Match.OpponentWorkersCreated" 
-                     LowerIsBetter="false" />
-                     
-            <StatRow Label="Avg Unspent Minerals" 
-                     MyValue="@Match.MyAvgUnspentMinerals" 
-                     OpponentValue="@Match.OpponentAvgUnspentMinerals" 
-                     LowerIsBetter="true" />
-                     
-            <StatRow Label="Avg Mineral Income" 
-                     MyValue="@Match.MyAvgMineralIncome" 
-                     OpponentValue="@Match.OpponentAvgMineralIncome" 
-                     LowerIsBetter="false" />
-                     
-            <StatRow Label="Time Supply Blocked" 
-                     MyValue="@Match.MySupplyBlockTime" 
-                     OpponentValue="@Match.OpponentSupplyBlockTime" 
-                     Format="s"
-                     LowerIsBetter="true" />
-        </div>
-
-        <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border-color);">
-            <h3 style="text-align: center; color: var(--text-muted); margin-bottom: 24px;">Units Made</h3>
-            <div class="units-comparison" style="display: flex; gap: 40px;">
-                <div class="units-column you" style="flex: 1;">
-                    @if (MyUnits != null && MyUnits.Any())
-                    {
-                        <table class="units-table" style="width: 100%; text-align: left; font-size: 14px;">
-                            <tbody>
-                                @foreach (var unit in MyUnits.OrderByDescending(k => k.Value))
+            <!-- We will show units made for all players -->
+            <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border-color);">
+                <h3 style="text-align: center; color: var(--text-muted); margin-bottom: 24px;">Units Made</h3>
+                
+                <div style="display: flex; flex-direction: column; gap: 32px;">
+                    
+                    <!-- Friendly Team -->
+                    <div style="display: flex; flex-wrap: wrap; gap: 40px;">
+                        @foreach (var player in friendlyTeam)
+                        {
+                            var isMe = myNames.Contains(player.Name);
+                            <div class="units-column you" style="flex: 1; min-width: 200px;">
+                                <h4 style="margin-bottom: 12px; color: var(--accent-primary);">
+                                    @(isMe ? $"You ({player.Name})" : player.Name) 
+                                    <span style="color: var(--text-muted); font-size: 12px; margin-left: 8px;">@player.Race</span>
+                                </h4>
+                                @if (player.UnitsMade != null && player.UnitsMade.Any())
                                 {
-                                    <tr>
-                                        <td style="padding: 4px 0; color: var(--text-muted);">@unit.Key</td>
-                                        <td style="padding: 4px 0; text-align: right; font-weight: 500; color: var(--accent-primary);">@unit.Value</td>
-                                    </tr>
+                                    <table class="units-table" style="width: 100%; text-align: left; font-size: 14px;">
+                                        <tbody>
+                                            @foreach (var unit in player.UnitsMade.OrderByDescending(k => k.Value))
+                                            {
+                                                <tr>
+                                                    <td style="padding: 4px 0; color: var(--text-muted);">@unit.Key</td>
+                                                    <td style="padding: 4px 0; text-align: right; font-weight: 500; color: var(--accent-primary);">@unit.Value</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
                                 }
-                            </tbody>
-                        </table>
-                    }
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Divider -->
+                    <div style="text-align: center; font-weight: bold; color: var(--text-muted); font-size: 12px;">VS</div>
+
+                    <!-- Enemy Team -->
+                    <div style="display: flex; flex-wrap: wrap; gap: 40px;">
+                        @foreach (var player in enemyTeam)
+                        {
+                            <div class="units-column opponent" style="flex: 1; min-width: 200px;">
+                                <h4 style="margin-bottom: 12px; color: var(--accent-secondary);">
+                                    @player.Name 
+                                    <span style="color: var(--text-muted); font-size: 12px; margin-left: 8px;">@player.Race</span>
+                                </h4>
+                                @if (player.UnitsMade != null && player.UnitsMade.Any())
+                                {
+                                    <table class="units-table" style="width: 100%; text-align: left; font-size: 14px;">
+                                        <tbody>
+                                            @foreach (var unit in player.UnitsMade.OrderByDescending(k => k.Value))
+                                            {
+                                                <tr>
+                                                    <td style="padding: 4px 0; color: var(--text-muted);">@unit.Key</td>
+                                                    <td style="padding: 4px 0; text-align: right; font-weight: 500; color: var(--accent-secondary);">@unit.Value</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Fallback to Legacy 1v1 View if no FullMatchData -->
+        <div class="card match-stats-card" style="margin-top: 24px;">
+            <div class="stats-comparison">
+                <div class="stats-column you">
+                    <h3>You</h3>
+                    <div class="stats-race">@(Match.MyRace ?? "Unknown")</div>
                 </div>
                 
-                <div class="units-column opponent" style="flex: 1;">
-                    @if (OpponentUnits != null && OpponentUnits.Any())
-                    {
-                        <table class="units-table" style="width: 100%; text-align: left; font-size: 14px;">
-                            <tbody>
-                                @foreach (var unit in OpponentUnits.OrderByDescending(k => k.Value))
-                                {
-                                    <tr>
-                                        <td style="padding: 4px 0; color: var(--text-muted);">@unit.Key</td>
-                                        <td style="padding: 4px 0; text-align: right; font-weight: 500; color: var(--accent-secondary);">@unit.Value</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    }
+                <div class="stats-column middle">
+                    <h3>VS</h3>
+                </div>
+
+                <div class="stats-column opponent">
+                    <h3>@Match.Opponent.Name</h3>
+                    <div class="stats-race">@(Match.OpponentRace ?? "Unknown")</div>
+                </div>
+            </div>
+
+            <div class="stats-metrics">
+                <StatRow Label="Workers Created" 
+                         MyValue="@Match.MyWorkersCreated" 
+                         OpponentValue="@Match.OpponentWorkersCreated" 
+                         LowerIsBetter="false" />
+                         
+                <StatRow Label="Avg Unspent Minerals" 
+                         MyValue="@Match.MyAvgUnspentMinerals" 
+                         OpponentValue="@Match.OpponentAvgUnspentMinerals" 
+                         LowerIsBetter="true" />
+                         
+                <StatRow Label="Avg Mineral Income" 
+                         MyValue="@Match.MyAvgMineralIncome" 
+                         OpponentValue="@Match.OpponentAvgMineralIncome" 
+                         LowerIsBetter="false" />
+                         
+                <StatRow Label="Time Supply Blocked" 
+                         MyValue="@Match.MySupplyBlockTime" 
+                         OpponentValue="@Match.OpponentSupplyBlockTime" 
+                         Format="s"
+                         LowerIsBetter="true" />
+            </div>
+
+            <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border-color);">
+                <h3 style="text-align: center; color: var(--text-muted); margin-bottom: 24px;">Units Made</h3>
+                <div class="units-comparison" style="display: flex; gap: 40px;">
+                    <div class="units-column you" style="flex: 1;">
+                        @if (MyUnits != null && MyUnits.Any())
+                        {
+                            <table class="units-table" style="width: 100%; text-align: left; font-size: 14px;">
+                                <tbody>
+                                    @foreach (var unit in MyUnits.OrderByDescending(k => k.Value))
+                                    {
+                                        <tr>
+                                            <td style="padding: 4px 0; color: var(--text-muted);">@unit.Key</td>
+                                            <td style="padding: 4px 0; text-align: right; font-weight: 500; color: var(--accent-primary);">@unit.Value</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
+                    
+                    <div class="units-column opponent" style="flex: 1;">
+                        @if (OpponentUnits != null && OpponentUnits.Any())
+                        {
+                            <table class="units-table" style="width: 100%; text-align: left; font-size: 14px;">
+                                <tbody>
+                                    @foreach (var unit in OpponentUnits.OrderByDescending(k => k.Value))
+                                    {
+                                        <tr>
+                                            <td style="padding: 4px 0; color: var(--text-muted);">@unit.Key</td>
+                                            <td style="padding: 4px 0; text-align: right; font-weight: 500; color: var(--accent-secondary);">@unit.Value</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
+    }
 }
 
 @code {
@@ -128,12 +225,47 @@ else
     private MatchRecord? Match { get; set; }
     private Dictionary<string, int>? MyUnits;
     private Dictionary<string, int>? OpponentUnits;
+    private List<PlayerAnalysisResult>? AllPlayers;
+
+    private class PlayerAnalysisResult
+    {
+        public string Name { get; set; } = "";
+        public string Race { get; set; } = "";
+        public string? Result { get; set; }
+        public Dictionary<string, int>? UnitsMade { get; set; }
+        public PlayerStatsResult? Stats { get; set; }
+    }
+
+    private class PlayerStatsResult
+    {
+        public int WorkersCreated { get; set; }
+        public int SupplyBlockTime { get; set; }
+        public int AvgUnspentMinerals { get; set; }
+        public int AvgMineralIncome { get; set; }
+    }
+
+    private HashSet<string> GetMyNames()
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(Settings.Current.MySc2Name))
+        {
+            foreach (var n in Settings.Current.MySc2Name.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                set.Add(n.Trim());
+        }
+        return set;
+    }
 
     protected override async Task OnParametersSetAsync()
     {
         Match = await Repo.GetMatchByIdAsync(Id);
         if (Match != null)
         {
+            if (!string.IsNullOrEmpty(Match.FullMatchData))
+            {
+                var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                AllPlayers = System.Text.Json.JsonSerializer.Deserialize<List<PlayerAnalysisResult>>(Match.FullMatchData, options);
+            }
+            
             if (!string.IsNullOrEmpty(Match.MyUnitsMade))
             {
                 MyUnits = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, int>>(Match.MyUnitsMade);

@@ -118,7 +118,9 @@ public class ReplayAnalysisService(
                         ourResult = opponentWon ? MatchResult.Loss : MatchResult.Win;
                     }
                     
-                    await repo.RecordMatchAsync(opponent.Id, ourResult, result.MapName, myResult?.Race, playerResult.Race, result.GameMode, result.StartTime, match => {
+                    var fullMatchDataStr = JsonSerializer.Serialize(result.Data);
+                    
+                    await repo.RecordMatchAsync(opponent.Id, ourResult, result.MapName, myResult?.Race, playerResult.Race, result.GameMode, result.StartTime, fullMatchDataStr, match => {
                         if (myResult?.Stats != null)
                         {
                             match.MyWorkersCreated = myResult.Stats.WorkersCreated;

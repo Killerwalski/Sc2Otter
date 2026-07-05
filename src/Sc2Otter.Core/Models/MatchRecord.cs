@@ -29,6 +29,7 @@ public class MatchRecord
 
     public string? MyUnitsMade { get; set; }
     public string? OpponentUnitsMade { get; set; }
+    public string? FullMatchData { get; set; }
 
     public Opponent Opponent { get; set; } = null!;
 }
