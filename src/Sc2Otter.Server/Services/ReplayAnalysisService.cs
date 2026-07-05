@@ -104,13 +104,18 @@ public class ReplayAnalysisService(
                         logger.LogInformation("Added note to {Player}: {Note}", playerResult.Name, fullNote);
                     }
                     
+                    if (!string.IsNullOrWhiteSpace(result.GameMode) && result.GameMode != "1v1" && !result.GameMode.EndsWith("p"))
+                    {
+                        await repo.AddTagAsync(opponent.Id, result.GameMode, ct);
+                    }
+                    
                     if (!string.IsNullOrWhiteSpace(playerResult.Result))
                     {
                         var opponentWon = playerResult.Result.Equals("Win", StringComparison.OrdinalIgnoreCase);
                         // If the opponent won, our result is Loss. If opponent lost, our result is Win.
                         var ourResult = opponentWon ? MatchResult.Loss : MatchResult.Win;
                         
-                        await repo.RecordMatchAsync(opponent.Id, ourResult, result.MapName, null, playerResult.Race, null, result.StartTime, ct);
+                        await repo.RecordMatchAsync(opponent.Id, ourResult, result.MapName, null, playerResult.Race, result.GameMode, result.StartTime, ct);
                     }
                 }
                 return true;
@@ -129,6 +134,7 @@ public class ReplayAnalysisService(
         public string? Error { get; set; }
         public string? MapName { get; set; }
         public DateTime? StartTime { get; set; }
+        public string? GameMode { get; set; }
         public List<PlayerAnalysisResult>? Data { get; set; }
     }
 

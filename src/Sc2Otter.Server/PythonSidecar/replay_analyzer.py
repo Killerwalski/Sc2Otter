@@ -68,10 +68,23 @@ def analyze_replay(replay_path, my_name=None):
                                     
             results.append(player_result)
             
+        total_players = len(players)
+        if total_players == 2:
+            game_mode = "1v1"
+        elif total_players == 4:
+            game_mode = "2v2"
+        elif total_players == 6:
+            game_mode = "3v3"
+        elif total_players == 8:
+            game_mode = "4v4"
+        else:
+            game_mode = f"{total_players}p"
+            
         print(json.dumps({
             "success": True, 
             "mapName": replay.map_name,
             "startTime": replay.start_time.isoformat(),
+            "gameMode": game_mode,
             "data": results
         }))
         

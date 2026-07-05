@@ -225,15 +225,18 @@ public class GameStateMonitor(
         var myName = settings.Current.MySc2Name;
 
         // Identify opponents (players who are not "me")
-        var humanPlayers = (gameInfo.Players ?? [])
+        var allHumanPlayers = (gameInfo.Players ?? [])
             .Where(p => !p.Type.Equals("computer", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+            
+        var humanPlayers = allHumanPlayers
             .Where(p => string.IsNullOrWhiteSpace(myName) || !p.Name.Equals(myName, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
         if (humanPlayers.Count == 0) return [];
 
         // Determine game mode based on player count
-        var totalPlayers = humanPlayers.Count;
+        var totalPlayers = allHumanPlayers.Count;
         var gameMode = totalPlayers switch
         {
             2 => "1v1",
@@ -258,6 +261,12 @@ public class GameStateMonitor(
 
             var opponent = await repo.GetOrCreateAsync(player.Name, player.Race, seenAt: null, ct: ct);
             newIds[player.Name] = opponent.Id;
+            
+            // Tag team game players
+            if (gameMode != "1v1" && !gameMode.EndsWith("p"))
+            {
+                await repo.AddTagAsync(opponent.Id, gameMode, ct);
+            }
 
             // Load full details for display
             var details = await repo.GetWithDetailsAsync(opponent.Id, ct);
