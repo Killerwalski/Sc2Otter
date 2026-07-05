@@ -56,7 +56,10 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
 
     public async Task<List<Opponent>> SearchAsync(string? query = null, string? raceFilter = null, string? tagFilter = null, CancellationToken ct = default)
     {
-        var q = db.Opponents.Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag).AsQueryable();
+        var q = db.Opponents
+            .Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag)
+            .Include(o => o.MatchRecords)
+            .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(query))
             q = q.Where(o => EF.Functions.Like(o.Name, $"%{query}%"));

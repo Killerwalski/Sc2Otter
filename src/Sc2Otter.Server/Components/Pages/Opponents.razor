@@ -6,7 +6,7 @@
 @inject NavigationManager Navigation
 
 <div class="page-header">
-    <h1>Opponents</h1>
+    <h1>Opponents (@OpponentList.Count)</h1>
     <p>Browse and search your scouting database</p>
 </div>
 
@@ -21,6 +21,13 @@
     <button class="filter-chip @(RaceFilter == "Protoss" ? "active" : "")" @onclick="@(() => SetRaceFilter("Protoss"))">Protoss</button>
     <button class="filter-chip @(RaceFilter == "Zerg" ? "active" : "")" @onclick="@(() => SetRaceFilter("Zerg"))">Zerg</button>
     <button class="filter-chip @(RaceFilter == "Random" ? "active" : "")" @onclick="@(() => SetRaceFilter("Random"))">Random</button>
+    <div style="flex-grow: 1"></div>
+    <select class="input" style="width: auto; padding: 4px 12px; height: 32px; border-radius: 16px; background-color: var(--surface-2); border: 1px solid var(--border);" @bind="SortBy" @bind:after="ApplySort">
+        <option value="LastSeen">Sort by: Last Seen</option>
+        <option value="Games">Sort by: Games Played</option>
+        <option value="Wins">Sort by: Wins</option>
+        <option value="Losses">Sort by: Losses</option>
+    </select>
 </div>
 
 @if (OpponentList.Count == 0)
@@ -70,6 +77,7 @@ else
 @code {
     private string? SearchQuery { get; set; }
     private string? RaceFilter { get; set; }
+    private string SortBy { get; set; } = "LastSeen";
     private List<Opponent> OpponentList { get; set; } = [];
 
     protected override async Task OnInitializedAsync()
@@ -91,6 +99,18 @@ else
     private async Task LoadOpponents()
     {
         OpponentList = await Repo.SearchAsync(SearchQuery, RaceFilter);
+        ApplySort();
+    }
+
+    private void ApplySort()
+    {
+        OpponentList = SortBy switch
+        {
+            "Games" => OpponentList.OrderByDescending(o => o.MatchRecords?.Count ?? 0).ToList(),
+            "Wins" => OpponentList.OrderByDescending(o => o.MatchRecords?.Count(m => m.Result == MatchResult.Win) ?? 0).ToList(),
+            "Losses" => OpponentList.OrderByDescending(o => o.MatchRecords?.Count(m => m.Result == MatchResult.Loss) ?? 0).ToList(),
+            _ => OpponentList.OrderByDescending(o => o.LastSeen).ToList()
+        };
     }
 
     private void NavigateToOpponent(int id) => Navigation.NavigateTo($"/opponent/{id}");
