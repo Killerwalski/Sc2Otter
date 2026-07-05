@@ -13,7 +13,7 @@ public class Sc2PlayerTests
     [InlineData("Rand", "Random")]
     [InlineData("random", "Random")]
     [InlineData("Unknown", "Unknown")]
-    [InlineData(null, null)]
+    [InlineData(null, "Unknown")]
     public void Race_IsNormalized_WhenSet(string? inputRace, string? expectedRace)
     {
         // Arrange
