@@ -46,7 +46,7 @@ def analyze_replay(replay_path, my_name=None):
                     # 1. Fast Pool Detection (Zerg)
                     # 14 pool is usually started around 1:00-1:05
                     # Standard 16 or 17 pool is around 1:15-1:20
-                    if unit_name == 'SpawningPool' and time_sec < 70:
+                    if player.play_race == 'Zerg' and unit_name == 'SpawningPool' and time_sec < 70:
                         fast_pool_detected = True
                         player_result["tags"].append("Cheese")
                         player_result["tags"].append("Fast Pool")
@@ -54,12 +54,9 @@ def analyze_replay(replay_path, my_name=None):
                         
                     # 2. Proxy Detection (Terran / Protoss)
                     # Check distance from main base for early production structures
-                    if starting_loc and unit_name in ['Barracks', 'Gateway', 'Factory', 'Starport', 'RoboticsFacility', 'Stargate', 'Hatchery']:
-                        # Don't consider hatcheries proxy unless they are VERY far, but standard is Proxy Rax/Gate
-                        if unit_name == 'Hatchery': continue
-                            
-                        # Only care about early game proxies (first 4 minutes)
-                        if time_sec < 240:
+                    if starting_loc and unit_name in ['Barracks', 'Gateway', 'Factory', 'Starport', 'RoboticsFacility', 'Stargate']:
+                        # Only care about early game proxies (first 6 minutes)
+                        if time_sec < 360:
                             dist = math.hypot(event.location[0] - starting_loc[0], event.location[1] - starting_loc[1])
                             if dist > 55: # Usually Natural is ~25 away, 3rd is ~40 away. >55 is proxy territory.
                                 proxy_detected = True
