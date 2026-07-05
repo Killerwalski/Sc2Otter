@@ -108,6 +108,10 @@
                 {
                     <span style="color: var(--text-muted); font-size: 13px;">@ScanProgressMessage</span>
                 }
+                else if (!string.IsNullOrEmpty(TempSettings.LastScanResult))
+                {
+                    <span style="color: var(--text-muted); font-size: 13px;">@TempSettings.LastScanResult</span>
+                }
                 <button class="btn btn-secondary" style="padding: 6px 12px;" @onclick="StartBulkScan" disabled="@IsScanning">
                     @(IsScanning ? "Scanning..." : "Scan Replays")
                 </button>
@@ -257,7 +261,11 @@
                     }
                 }
                 Logger.LogInformation("Finished scanning all {Total} replays. Imported: {Imported}", files.Count, imported);
-                ScanProgressMessage = $"Finished! Scanned {files.Count}, Imported {imported}.";
+                
+                var resultMsg = $"Last scanned {DateTime.Now:MMM d, h:mm tt}: {imported}/{files.Count} replays imported.";
+                ScanProgressMessage = resultMsg;
+                TempSettings.LastScanResult = resultMsg;
+                SettingsService.Update(TempSettings);
             }
             catch (Exception ex)
             {
@@ -267,17 +275,8 @@
             finally
             {
                 IsScanning = false;
+                ScanProgressMessage = ""; // Clear active progress to let the saved result show
                 await InvokeAsync(StateHasChanged);
-                
-                _ = Task.Run(async () => 
-                {
-                    await Task.Delay(5000);
-                    if (!IsScanning)
-                    {
-                        ScanProgressMessage = "";
-                        await InvokeAsync(StateHasChanged);
-                    }
-                });
             }
         });
     }
