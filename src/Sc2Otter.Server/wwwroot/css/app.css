@@ -617,6 +617,11 @@ html, body {
     color: var(--text-muted);
 }
 
+select.input option {
+    background-color: var(--bg-input);
+    color: var(--text-primary);
+}
+
 .search-container {
     position: relative;
     margin-bottom: 16px;
