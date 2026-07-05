@@ -5,8 +5,10 @@
 @using Sc2Otter.Core.Models
 @using Sc2Otter.Core.Interfaces
 @using Sc2Otter.Server.Components.Shared
+@using Sc2Otter.Server.Services
 @inject NavigationManager Navigation
 @inject IOpponentRepository Repo
+@inject IServiceProvider ServiceProvider
 @implements IAsyncDisposable
 
 <div class="page-header">
@@ -14,7 +16,7 @@
     <p>Real-time opponent scouting powered by the SC2 Game Client API</p>
 </div>
 
-<div class="live-panel @(CurrentState != Sc2GameState.WaitingForSc2 && CurrentState != Sc2GameState.InMenus ? "has-game" : "")">
+<div class="live-panel @(CurrentState != Sc2GameState.WaitingForSc2 ? "has-game" : "")">
     <div class="live-panel-header">
         <span class="live-indicator @(CurrentState != Sc2GameState.WaitingForSc2 ? "active" : "")"></span>
         <span class="live-status">@GetStatusText()</span>
@@ -157,6 +159,16 @@
     {
         RecentOpponents = await Repo.GetRecentAsync(6);
 
+        var monitor = ServiceProvider.GetServices<IHostedService>()
+            .OfType<GameStateMonitor>()
+            .FirstOrDefault();
+            
+        if (monitor is not null)
+        {
+            CurrentState = monitor.CurrentState;
+            DetectedOpponents = monitor.CurrentOpponents.ToList();
+        }
+
         _hubConnection = new HubConnectionBuilder()
             .WithUrl(Navigation.ToAbsoluteUri("/scouthub"))
             .WithAutomaticReconnect()
@@ -175,10 +187,13 @@
             {
                 DetectedOpponents = e.Opponents;
             }
+            if (e.State == Sc2GameState.InMenus || e.State == Sc2GameState.WaitingForSc2 || e.State == Sc2GameState.PostGame)
+            {
+                RecentOpponents = await Repo.GetRecentAsync(6);
+            }
             if (e.State == Sc2GameState.InMenus || e.State == Sc2GameState.WaitingForSc2)
             {
                 DetectedOpponents = [];
-                RecentOpponents = await Repo.GetRecentAsync(6);
             }
             await InvokeAsync(StateHasChanged);
         });

@@ -1,5 +1,7 @@
 @page "/settings"
 @rendermode InteractiveServer
+@using Sc2Otter.Server.Services
+@inject SettingsService SettingsService
 
 <div class="page-header">
     <h1>Settings</h1>
@@ -8,14 +10,43 @@
 
 <div class="card">
     <div class="settings-section">
+        <h3>General</h3>
+        <div class="setting-row">
+            <div>
+                <div class="setting-label">My SC2 Username</div>
+                <div class="setting-description">Your exact Starcraft II username so you aren't tracked as an opponent</div>
+            </div>
+            <div>
+                <input type="text" class="form-control" style="width: 200px; background: var(--bg-tertiary); color: white; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 4px;" @bind="TempSettings.MySc2Name" placeholder="e.g. APECRAFT" />
+            </div>
+        </div>
+    </div>
+
+    <div class="settings-section">
         <h3>Global Hotkey</h3>
         <div class="setting-row">
             <div>
                 <div class="setting-label">Add Note Hotkey</div>
                 <div class="setting-description">Opens the note editor for the current opponent</div>
             </div>
-            <div>
-                <kbd style="padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text-secondary);">Ctrl + Shift + N</kbd>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <select class="form-control" style="background: var(--bg-tertiary); color: white; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 4px;" @bind="TempSettings.HotkeyModifiers">
+                    <option value="Ctrl">Ctrl</option>
+                    <option value="Shift">Shift</option>
+                    <option value="Alt">Alt</option>
+                    <option value="Ctrl+Shift">Ctrl + Shift</option>
+                    <option value="Ctrl+Alt">Ctrl + Alt</option>
+                    <option value="Alt+Shift">Alt + Shift</option>
+                    <option value="Ctrl+Alt+Shift">Ctrl + Alt + Shift</option>
+                </select>
+                <span>+</span>
+                <select class="form-control" style="background: var(--bg-tertiary); color: white; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 4px;" @bind="TempSettings.HotkeyChar">
+                    @for (char c = 'A'; c <= 'Z'; c++)
+                    {
+                        var key = c.ToString();
+                        <option value="@key">@key</option>
+                    }
+                </select>
             </div>
         </div>
     </div>
@@ -33,11 +64,11 @@
         </div>
         <div class="setting-row">
             <div>
-                <div class="setting-label">Polling Interval</div>
+                <div class="setting-label">Polling Interval (ms)</div>
                 <div class="setting-description">How often to check for game state changes</div>
             </div>
             <div>
-                <span style="color: var(--text-muted); font-size: 13px;">2 seconds</span>
+                <input type="number" class="form-control" style="width: 100px; background: var(--bg-tertiary); color: white; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 4px;" @bind="TempSettings.PollingIntervalMs" min="500" max="10000" step="100" />
             </div>
         </div>
     </div>
@@ -54,15 +85,32 @@
             </div>
         </div>
     </div>
-
-    <div class="settings-section">
-        <h3>About</h3>
-        <div class="setting-row">
-            <div>
-                <div class="setting-label">Sc2Otter</div>
-                <div class="setting-description">SC2 Opponent Scouting Companion v1.0 • .NET 10</div>
-            </div>
-            <span style="font-size: 28px;">🦦</span>
-        </div>
+    
+    <div style="margin-top: 30px; display: flex; align-items: center; justify-content: flex-end; gap: 16px;">
+        @if (ShowSaved)
+        {
+            <div style="color: var(--accent-success); font-weight: 500;">Settings saved successfully!</div>
+        }
+        <button class="btn btn-primary" style="padding: 10px 24px;" @onclick="SaveSettings">Save All Settings</button>
     </div>
 </div>
+
+@code {
+    private UserSettings TempSettings { get; set; } = new();
+    private bool ShowSaved = false;
+
+    protected override void OnInitialized()
+    {
+        TempSettings = SettingsService.Current.Clone();
+    }
+
+    private async Task SaveSettings()
+    {
+        SettingsService.Update(TempSettings);
+        ShowSaved = true;
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(2500);
+        ShowSaved = false;
+        await InvokeAsync(StateHasChanged);
+    }
+}

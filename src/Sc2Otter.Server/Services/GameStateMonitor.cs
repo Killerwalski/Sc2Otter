@@ -10,14 +10,17 @@ public class GameStateMonitor(
     ISc2GameClient sc2Client,
     IServiceScopeFactory scopeFactory,
     IHubContext<ScoutHub> hubContext,
+    SettingsService settings,
     ILogger<GameStateMonitor> logger) : BackgroundService
 {
     private Sc2GameState _currentState = Sc2GameState.WaitingForSc2;
     private readonly HashSet<string> _currentOpponentNames = [];
     private readonly Dictionary<string, int> _currentOpponentIds = new();
+    private List<OpponentDetectedEvent> _currentOpponents = [];
     private string? _lastMapName;
 
     public Sc2GameState CurrentState => _currentState;
+    public IReadOnlyList<OpponentDetectedEvent> CurrentOpponents => _currentOpponents;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -34,7 +37,15 @@ public class GameStateMonitor(
                 logger.LogError(ex, "Error polling SC2 game state");
             }
 
-            await Task.Delay(2000, stoppingToken);
+            try
+            {
+                var interval = settings.Current.PollingIntervalMs;
+                await Task.Delay(interval < 500 ? 2000 : interval, stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
         }
     }
 
@@ -62,36 +73,53 @@ public class GameStateMonitor(
             return;
         }
 
-        var screens = uiState.ActiveScreens;
+        var screens = uiState?.ActiveScreens ?? [];
         var newState = DetermineState(screens, gameInfo);
 
         if (newState != _currentState)
         {
             await TransitionTo(newState, gameInfo, screens, ct);
         }
+        else if (newState is Sc2GameState.LoadingScreen or Sc2GameState.InGame)
+        {
+            var myName = settings.Current.MySc2Name;
+            var currentHumanPlayers = (gameInfo?.Players ?? [])
+                .Where(p => !p.Type.Equals("computer", StringComparison.OrdinalIgnoreCase))
+                .Where(p => string.IsNullOrWhiteSpace(myName) || !p.Name.Equals(myName, StringComparison.OrdinalIgnoreCase))
+                .Select(p => p.Name)
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .ToList();
+
+            if (currentHumanPlayers.Count > 0 && 
+                (currentHumanPlayers.Count != _currentOpponentNames.Count || !currentHumanPlayers.All(_currentOpponentNames.Contains)))
+            {
+                logger.LogInformation("Players changed during {State}. Reloading opponents.", newState);
+                var newlyDetectedOpponents = await DetectOpponentsAsync(gameInfo, ct);
+                if (newlyDetectedOpponents.Count > 0)
+                {
+                    _currentOpponents = newlyDetectedOpponents;
+                    await hubContext.Clients.All.SendAsync("OpponentsDetected", newlyDetectedOpponents, ct);
+                }
+            }
+        }
     }
 
-    private Sc2GameState DetermineState(List<string> screens, Sc2GameResponse gameInfo)
+    private Sc2GameState DetermineState(List<string> screens, Sc2GameResponse? gameInfo)
     {
+        var hasResults = (gameInfo?.Players ?? []).Any(p =>
+            string.Equals(p.Result, "Victory", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(p.Result, "Defeat", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(p.Result, "Win", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(p.Result, "Loss", StringComparison.OrdinalIgnoreCase));
+
+        var hasPlayers = (gameInfo?.Players ?? []).Count > 0;
+        var isGameActive = hasPlayers && !hasResults;
+
         // Check for loading screen
         if (screens.Any(s => s.Contains("Loading", StringComparison.OrdinalIgnoreCase) ||
                              s.Contains("InitGame", StringComparison.OrdinalIgnoreCase)))
         {
             return Sc2GameState.LoadingScreen;
-        }
-
-        // Check for in-game
-        if (screens.Any(s => s.Equals("ScreenInGame", StringComparison.OrdinalIgnoreCase) ||
-                             s.Contains("InGame", StringComparison.OrdinalIgnoreCase)))
-        {
-            // Check if game has ended (results available)
-            var hasResults = gameInfo.Players.Any(p =>
-                p.Result.Equals("Victory", StringComparison.OrdinalIgnoreCase) ||
-                p.Result.Equals("Defeat", StringComparison.OrdinalIgnoreCase) ||
-                p.Result.Equals("Win", StringComparison.OrdinalIgnoreCase) ||
-                p.Result.Equals("Loss", StringComparison.OrdinalIgnoreCase));
-
-            return hasResults ? Sc2GameState.PostGame : Sc2GameState.InGame;
         }
 
         // Check for score/results screen
@@ -101,8 +129,22 @@ public class GameStateMonitor(
             return Sc2GameState.PostGame;
         }
 
+        // Explicit in-game screen (sometimes reported, sometimes not)
+        if (screens.Any(s => s.Equals("ScreenInGame", StringComparison.OrdinalIgnoreCase) ||
+                             s.Contains("InGame", StringComparison.OrdinalIgnoreCase)))
+        {
+            return hasResults ? Sc2GameState.PostGame : Sc2GameState.InGame;
+        }
+
+        // If no explicit in-game screen is reported, but a game is active, we are in-game!
+        // SC2 API often reports empty active screens when actually playing a match.
+        if (isGameActive)
+        {
+            return Sc2GameState.InGame;
+        }
+
         // Default: in menus if SC2 is responding
-        return gameInfo.Players.Count > 0 ? Sc2GameState.InGame : Sc2GameState.InMenus;
+        return Sc2GameState.InMenus;
     }
 
     private async Task TransitionTo(Sc2GameState newState, Sc2GameResponse? gameInfo,
@@ -118,28 +160,45 @@ public class GameStateMonitor(
         {
             case Sc2GameState.LoadingScreen:
             case Sc2GameState.InGame:
-                if (gameInfo is not null && _currentOpponentIds.Count == 0)
+                if (gameInfo is not null && (_currentOpponentIds.Count == 0 || newlyDetectedOpponents?.Count == 0))
                 {
                     newlyDetectedOpponents = await DetectOpponentsAsync(gameInfo, ct);
                     if (newlyDetectedOpponents.Count > 0)
                     {
+                        _currentOpponents = newlyDetectedOpponents;
                         await hubContext.Clients.All.SendAsync("OpponentsDetected", newlyDetectedOpponents, ct);
                     }
                 }
+                else
+                {
+                    newlyDetectedOpponents = _currentOpponents;
+                }
                 break;
 
-            case Sc2GameState.PostGame when gameInfo is not null:
-                await HandlePostGame(gameInfo, ct);
+            case Sc2GameState.PostGame:
+                if (gameInfo is not null)
+                {
+                    await HandlePostGame(gameInfo, ct);
+                    
+                    // Reload opponents to fetch updated stats (wins/losses)
+                    newlyDetectedOpponents = await DetectOpponentsAsync(gameInfo, ct, ignoreCache: true);
+                    if (newlyDetectedOpponents.Count > 0)
+                    {
+                        _currentOpponents = newlyDetectedOpponents;
+                    }
+                }
                 break;
 
             case Sc2GameState.WaitingForSc2:
                 _currentOpponentNames.Clear();
                 _currentOpponentIds.Clear();
+                _currentOpponents = [];
                 break;
 
             case Sc2GameState.InMenus when previousState is Sc2GameState.PostGame or Sc2GameState.InGame:
                 _currentOpponentNames.Clear();
                 _currentOpponentIds.Clear();
+                _currentOpponents = [];
                 break;
         }
 
@@ -147,11 +206,28 @@ public class GameStateMonitor(
         await hubContext.Clients.All.SendAsync("GameStateChanged", stateEvent, ct);
     }
 
-    private async Task<List<OpponentDetectedEvent>> DetectOpponentsAsync(Sc2GameResponse gameInfo, CancellationToken ct)
+    private async Task<List<OpponentDetectedEvent>> DetectOpponentsAsync(Sc2GameResponse? gameInfo, CancellationToken ct, bool ignoreCache = false)
     {
-        // Identify opponents (players who are not "me" — we detect "me" as the first user-type player)
-        var humanPlayers = gameInfo.Players
+        if (gameInfo is null) return [];
+
+        if (!ignoreCache)
+        {
+            // If the API is still caching the previous game, it will have results. Ignore it.
+            var isOldCachedGame = (gameInfo.Players ?? []).Any(p =>
+                string.Equals(p.Result, "Victory", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(p.Result, "Defeat", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(p.Result, "Win", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(p.Result, "Loss", StringComparison.OrdinalIgnoreCase));
+
+            if (isOldCachedGame) return [];
+        }
+
+        var myName = settings.Current.MySc2Name;
+
+        // Identify opponents (players who are not "me")
+        var humanPlayers = (gameInfo.Players ?? [])
             .Where(p => !p.Type.Equals("computer", StringComparison.OrdinalIgnoreCase))
+            .Where(p => string.IsNullOrWhiteSpace(myName) || !p.Name.Equals(myName, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
         if (humanPlayers.Count == 0) return [];
@@ -167,13 +243,9 @@ public class GameStateMonitor(
             _ => $"{totalPlayers}p"
         };
 
-        // In a team game, the first player is typically you. In 1v1, one of the two is you.
-        // We track ALL players and let the user see all of them.
-        // The user can identify themselves by their own name.
-        _currentOpponentNames.Clear();
-        _currentOpponentIds.Clear();
-
         var detectedOpponents = new List<OpponentDetectedEvent>();
+        var newNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var newIds = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
         using var scope = scopeFactory.CreateScope();
         var repo = scope.ServiceProvider.GetRequiredService<IOpponentRepository>();
@@ -182,10 +254,10 @@ public class GameStateMonitor(
         {
             if (string.IsNullOrWhiteSpace(player.Name)) continue;
 
-            _currentOpponentNames.Add(player.Name);
+            newNames.Add(player.Name);
 
             var opponent = await repo.GetOrCreateAsync(player.Name, player.Race, ct);
-            _currentOpponentIds[player.Name] = opponent.Id;
+            newIds[player.Name] = opponent.Id;
 
             // Load full details for display
             var details = await repo.GetWithDetailsAsync(opponent.Id, ct);
@@ -208,6 +280,12 @@ public class GameStateMonitor(
                 player.Name, player.Race, stats.TotalGames, stats.Wins, stats.Losses);
         }
 
+        _currentOpponentNames.Clear();
+        foreach (var name in newNames) _currentOpponentNames.Add(name);
+
+        _currentOpponentIds.Clear();
+        foreach (var kvp in newIds) _currentOpponentIds[kvp.Key] = kvp.Value;
+        
         _lastMapName = null; // Will be populated when we can determine the map
 
         return detectedOpponents;

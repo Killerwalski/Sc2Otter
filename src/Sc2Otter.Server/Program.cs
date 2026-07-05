@@ -21,6 +21,7 @@ builder.Services.AddDbContext<ScoutDbContext>(options =>
 
 // --- Services ---
 builder.Services.AddScoped<IOpponentRepository, OpponentRepository>();
+builder.Services.AddSingleton<SettingsService>();
 
 builder.Services.AddHttpClient<ISc2GameClient, Sc2GameClient>(client =>
 {
@@ -46,6 +47,36 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ScoutDbContext>();
     await db.Database.EnsureCreatedAsync();
+    
+    // Clean up local player from database
+    var settings = scope.ServiceProvider.GetRequiredService<SettingsService>();
+    if (!string.IsNullOrWhiteSpace(settings.Current.MySc2Name))
+    {
+        var me = await db.Opponents.FirstOrDefaultAsync(o => o.Name.ToLower() == settings.Current.MySc2Name.ToLower());
+        if (me != null)
+        {
+            db.Opponents.Remove(me);
+            await db.SaveChangesAsync();
+        }
+    }
+
+    // Fix any bad race strings from older data
+    var badTerr = await db.Opponents.Where(o => o.Race == "Terr" || o.Race == "terran").ToListAsync();
+    foreach(var o in badTerr) o.Race = "Terran";
+    
+    var badProt = await db.Opponents.Where(o => o.Race == "Prot" || o.Race == "protoss").ToListAsync();
+    foreach(var o in badProt) o.Race = "Protoss";
+    
+    var badRand = await db.Opponents.Where(o => o.Race == "Rand" || o.Race == "random").ToListAsync();
+    foreach(var o in badRand) o.Race = "Random";
+    
+    var badZerg = await db.Opponents.Where(o => o.Race == "zerg").ToListAsync();
+    foreach(var o in badZerg) o.Race = "Zerg";
+    
+    if (badTerr.Count > 0 || badProt.Count > 0 || badRand.Count > 0 || badZerg.Count > 0)
+    {
+        await db.SaveChangesAsync();
+    }
 }
 
 if (!app.Environment.IsDevelopment())

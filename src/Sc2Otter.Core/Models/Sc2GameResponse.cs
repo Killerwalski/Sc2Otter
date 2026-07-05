@@ -22,8 +22,28 @@ public class Sc2Player
     [JsonPropertyName("type")]
     public string Type { get; set; } = string.Empty;
 
+    private string _race = string.Empty;
+
     [JsonPropertyName("race")]
-    public string Race { get; set; } = string.Empty;
+    public string Race 
+    { 
+        get => _race;
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                _race = "Unknown";
+            else if (value.StartsWith("Terr", StringComparison.OrdinalIgnoreCase))
+                _race = "Terran";
+            else if (value.StartsWith("Zerg", StringComparison.OrdinalIgnoreCase))
+                _race = "Zerg";
+            else if (value.StartsWith("Prot", StringComparison.OrdinalIgnoreCase))
+                _race = "Protoss";
+            else if (value.StartsWith("Rand", StringComparison.OrdinalIgnoreCase))
+                _race = "Random";
+            else
+                _race = value;
+        }
+    }
 
     [JsonPropertyName("result")]
     public string Result { get; set; } = string.Empty;
