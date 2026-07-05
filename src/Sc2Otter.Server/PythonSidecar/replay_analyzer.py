@@ -21,6 +21,7 @@ def analyze_replay(replay_path, my_name=None):
             player_result = {
                 "name": player.name,
                 "race": player.play_race,
+                "result": player.result,
                 "tags": [],
                 "notes": []
             }

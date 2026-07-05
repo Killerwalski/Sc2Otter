@@ -81,8 +81,6 @@ public class ReplayAnalysisService(
 
                 foreach (var playerResult in result.Data)
                 {
-                    if (playerResult.Tags.Count == 0 && playerResult.Notes.Count == 0) continue;
-                    
                     if (namesToIgnore.Contains(playerResult.Name))
                     {
                         logger.LogInformation("Skipping analysis save for ignored player: {Name}", playerResult.Name);
@@ -104,6 +102,15 @@ public class ReplayAnalysisService(
                         await repo.AddNoteAsync(opponent.Id, fullNote, "replay", ct);
                         logger.LogInformation("Added note to {Player}: {Note}", playerResult.Name, fullNote);
                     }
+                    
+                    if (!string.IsNullOrWhiteSpace(playerResult.Result))
+                    {
+                        var opponentWon = playerResult.Result.Equals("Win", StringComparison.OrdinalIgnoreCase);
+                        // If the opponent won, our result is Loss. If opponent lost, our result is Win.
+                        var ourResult = opponentWon ? MatchResult.Loss : MatchResult.Win;
+                        
+                        await repo.RecordMatchAsync(opponent.Id, ourResult, "Unknown Map", null, playerResult.Race, null, ct);
+                    }
                 }
             }
         }
@@ -124,6 +131,7 @@ public class ReplayAnalysisService(
     {
         public string Name { get; set; } = "";
         public string Race { get; set; } = "";
+        public string? Result { get; set; }
         public List<string> Tags { get; set; } = [];
         public List<string> Notes { get; set; } = [];
     }
