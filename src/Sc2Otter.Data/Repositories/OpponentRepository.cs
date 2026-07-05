@@ -54,7 +54,7 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
             .FirstOrDefaultAsync(o => o.Id == id, ct);
     }
 
-    public async Task<List<Opponent>> SearchAsync(string? query = null, string? raceFilter = null, string? tagFilter = null, CancellationToken ct = default)
+    public async Task<List<Opponent>> SearchAsync(string? query = null, string? raceFilter = null, string? tagFilter = null, string? modeFilter = null, CancellationToken ct = default)
     {
         var q = db.Opponents
             .Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag)
@@ -69,6 +69,9 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
 
         if (!string.IsNullOrWhiteSpace(tagFilter))
             q = q.Where(o => o.TagAssignments.Any(ta => ta.Tag.Name == tagFilter));
+
+        if (!string.IsNullOrWhiteSpace(modeFilter))
+            q = q.Where(o => o.MatchRecords.Any(m => m.GameMode == modeFilter));
 
         return await q.OrderByDescending(o => o.LastSeen).ToListAsync(ct);
     }

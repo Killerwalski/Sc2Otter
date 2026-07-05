@@ -21,6 +21,13 @@
     <button class="filter-chip @(RaceFilter == "Protoss" ? "active" : "")" @onclick="@(() => SetRaceFilter("Protoss"))">Protoss</button>
     <button class="filter-chip @(RaceFilter == "Zerg" ? "active" : "")" @onclick="@(() => SetRaceFilter("Zerg"))">Zerg</button>
     <button class="filter-chip @(RaceFilter == "Random" ? "active" : "")" @onclick="@(() => SetRaceFilter("Random"))">Random</button>
+    <div style="width: 8px;"></div>
+    <div style="border-left: 1px solid var(--border-color); height: 24px; margin: 0 8px;"></div>
+    <div style="width: 8px;"></div>
+    <button class="filter-chip @(ModeFilter == "1v1" ? "active" : "")" @onclick="@(() => ToggleModeFilter("1v1"))">1v1</button>
+    <button class="filter-chip @(ModeFilter == "2v2" ? "active" : "")" @onclick="@(() => ToggleModeFilter("2v2"))">2v2</button>
+    <button class="filter-chip @(ModeFilter == "3v3" ? "active" : "")" @onclick="@(() => ToggleModeFilter("3v3"))">3v3</button>
+    <button class="filter-chip @(ModeFilter == "4v4" ? "active" : "")" @onclick="@(() => ToggleModeFilter("4v4"))">4v4</button>
     <div style="flex-grow: 1"></div>
     <select class="input" style="width: auto; padding: 4px 12px; height: 32px; border-radius: 16px; background-color: var(--surface-2); border: 1px solid var(--border);" @bind="SortBy" @bind:after="ApplySort">
         <option value="LastSeen">Sort by: Last Seen</option>
@@ -77,6 +84,7 @@ else
 @code {
     private string? SearchQuery { get; set; }
     private string? RaceFilter { get; set; }
+    private string? ModeFilter { get; set; }
     private string SortBy { get; set; } = "LastSeen";
     private List<Opponent> OpponentList { get; set; } = [];
 
@@ -96,9 +104,16 @@ else
         await LoadOpponents();
     }
 
+    private async Task ToggleModeFilter(string mode)
+    {
+        if (ModeFilter == mode) ModeFilter = null;
+        else ModeFilter = mode;
+        await LoadOpponents();
+    }
+
     private async Task LoadOpponents()
     {
-        OpponentList = await Repo.SearchAsync(SearchQuery, RaceFilter);
+        OpponentList = await Repo.SearchAsync(SearchQuery, RaceFilter, null, ModeFilter);
         ApplySort();
     }
 
