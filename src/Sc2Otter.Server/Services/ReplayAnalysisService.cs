@@ -104,7 +104,7 @@ public class ReplayAnalysisService(
                         logger.LogInformation("Added note to {Player}: {Note}", playerResult.Name, fullNote);
                     }
                     
-                    if (!string.IsNullOrWhiteSpace(result.GameMode) && result.GameMode != "1v1" && !result.GameMode.EndsWith("p"))
+                    if (!string.IsNullOrWhiteSpace(result.GameMode))
                     {
                         await repo.AddTagAsync(opponent.Id, result.GameMode, ct);
                     }

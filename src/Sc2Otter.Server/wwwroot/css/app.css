@@ -919,6 +919,9 @@ html, body {
 
 .tag-option.selected {
     border-color: currentColor;
+    border-width: 2px;
+    font-weight: 600;
+    box-shadow: 0 0 8px currentColor;
 }
 
 /* ===== SCROLLBAR ===== */

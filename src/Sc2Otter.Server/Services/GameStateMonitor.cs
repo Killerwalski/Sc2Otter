@@ -262,8 +262,8 @@ public class GameStateMonitor(
             var opponent = await repo.GetOrCreateAsync(player.Name, player.Race, seenAt: null, ct: ct);
             newIds[player.Name] = opponent.Id;
             
-            // Tag team game players
-            if (gameMode != "1v1" && !gameMode.EndsWith("p"))
+            // Tag game mode
+            if (!string.IsNullOrWhiteSpace(gameMode))
             {
                 await repo.AddTagAsync(opponent.Id, gameMode, ct);
             }

@@ -26,6 +26,10 @@ def analyze_replay(replay_path, my_name=None):
                 "notes": []
             }
             
+            # Check if they picked random
+            if hasattr(player, 'pick_race') and player.pick_race == 'Random':
+                player_result["tags"].append("Random")
+            
             # Find starting location
             starting_loc = None
             for event in replay.tracker_events:
