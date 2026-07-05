@@ -1,0 +1,68 @@
+@page "/settings"
+@rendermode InteractiveServer
+
+<div class="page-header">
+    <h1>Settings</h1>
+    <p>Configure Sc2Otter to your liking</p>
+</div>
+
+<div class="card">
+    <div class="settings-section">
+        <h3>Global Hotkey</h3>
+        <div class="setting-row">
+            <div>
+                <div class="setting-label">Add Note Hotkey</div>
+                <div class="setting-description">Opens the note editor for the current opponent</div>
+            </div>
+            <div>
+                <kbd style="padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text-secondary);">Ctrl + Shift + N</kbd>
+            </div>
+        </div>
+    </div>
+
+    <div class="settings-section">
+        <h3>SC2 Connection</h3>
+        <div class="setting-row">
+            <div>
+                <div class="setting-label">SC2 Client API</div>
+                <div class="setting-description">Sc2Otter connects to SC2 via the official game client API</div>
+            </div>
+            <div>
+                <span style="color: var(--text-muted); font-size: 13px; font-family: 'JetBrains Mono', monospace;">http://localhost:6119</span>
+            </div>
+        </div>
+        <div class="setting-row">
+            <div>
+                <div class="setting-label">Polling Interval</div>
+                <div class="setting-description">How often to check for game state changes</div>
+            </div>
+            <div>
+                <span style="color: var(--text-muted); font-size: 13px;">2 seconds</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="settings-section">
+        <h3>Database</h3>
+        <div class="setting-row">
+            <div>
+                <div class="setting-label">Database Location</div>
+                <div class="setting-description">SQLite database file path</div>
+            </div>
+            <div>
+                <span style="color: var(--text-muted); font-size: 13px; font-family: 'JetBrains Mono', monospace;">%APPDATA%\Sc2Otter\scout.db</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="settings-section">
+        <h3>About</h3>
+        <div class="setting-row">
+            <div>
+                <div class="setting-label">Sc2Otter</div>
+                <div class="setting-description">SC2 Opponent Scouting Companion v1.0 • .NET 10</div>
+            </div>
+            <span style="font-size: 28px;">🦦</span>
+        </div>
+    </div>
+</div>

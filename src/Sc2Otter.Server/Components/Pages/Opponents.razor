@@ -1,0 +1,97 @@
+@page "/opponents"
+@rendermode InteractiveServer
+@using Sc2Otter.Core.Models
+@using Sc2Otter.Core.Interfaces
+@inject IOpponentRepository Repo
+@inject NavigationManager Navigation
+
+<div class="page-header">
+    <h1>Opponents</h1>
+    <p>Browse and search your scouting database</p>
+</div>
+
+<div class="search-container">
+    <span class="search-icon">🔍</span>
+    <input class="input" type="text" placeholder="Search by name..." @bind="SearchQuery" @bind:event="oninput" @onkeyup="Search" />
+</div>
+
+<div class="filter-bar">
+    <button class="filter-chip @(RaceFilter == null ? "active" : "")" @onclick="() => SetRaceFilter(null)">All</button>
+    <button class="filter-chip @(RaceFilter == "Terran" ? "active" : "")" @onclick="@(() => SetRaceFilter("Terran"))">Terran</button>
+    <button class="filter-chip @(RaceFilter == "Protoss" ? "active" : "")" @onclick="@(() => SetRaceFilter("Protoss"))">Protoss</button>
+    <button class="filter-chip @(RaceFilter == "Zerg" ? "active" : "")" @onclick="@(() => SetRaceFilter("Zerg"))">Zerg</button>
+    <button class="filter-chip @(RaceFilter == "Random" ? "active" : "")" @onclick="@(() => SetRaceFilter("Random"))">Random</button>
+</div>
+
+@if (OpponentList.Count == 0)
+{
+    <div class="empty-state">
+        <div class="empty-state-icon">👥</div>
+        <h3>No opponents found</h3>
+        <p>@(string.IsNullOrEmpty(SearchQuery) ? "Play some games and your opponents will appear here" : "Try a different search term")</p>
+    </div>
+}
+else
+{
+    <div class="opponents-grid">
+        @foreach (var opp in OpponentList)
+        {
+            var wins = opp.MatchRecords?.Count(m => m.Result == MatchResult.Win) ?? 0;
+            var losses = opp.MatchRecords?.Count(m => m.Result == MatchResult.Loss) ?? 0;
+            var total = opp.MatchRecords?.Count ?? 0;
+
+            <div class="opponent-card race-@(opp.Race?.ToLower() ?? "random")" @onclick="() => NavigateToOpponent(opp.Id)">
+                <div class="opponent-card-header">
+                    <span class="opponent-name">@opp.Name</span>
+                    <span class="opponent-race">@(opp.Race ?? "Unknown")</span>
+                </div>
+                <div class="opponent-stats">
+                    <div class="stat"><span class="stat-value total">@total</span><span class="stat-label">Games</span></div>
+                    <div class="stat"><span class="stat-value wins">@wins</span><span class="stat-label">Wins</span></div>
+                    <div class="stat"><span class="stat-value losses">@losses</span><span class="stat-label">Losses</span></div>
+                </div>
+                @if (opp.Tags.Count > 0)
+                {
+                    <div class="tags-container">
+                        @foreach (var tag in opp.Tags)
+                        {
+                            <span class="tag">@tag.Name</span>
+                        }
+                    </div>
+                }
+                <div class="note-meta" style="margin-top: 8px">
+                    <span>Last seen: @opp.LastSeen.ToLocalTime().ToString("MMM d, h:mm tt")</span>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private string? SearchQuery { get; set; }
+    private string? RaceFilter { get; set; }
+    private List<Opponent> OpponentList { get; set; } = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadOpponents();
+    }
+
+    private async Task Search()
+    {
+        await LoadOpponents();
+    }
+
+    private async Task SetRaceFilter(string? race)
+    {
+        RaceFilter = race;
+        await LoadOpponents();
+    }
+
+    private async Task LoadOpponents()
+    {
+        OpponentList = await Repo.SearchAsync(SearchQuery, RaceFilter);
+    }
+
+    private void NavigateToOpponent(int id) => Navigation.NavigateTo($"/opponent/{id}");
+}

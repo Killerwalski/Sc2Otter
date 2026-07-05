@@ -1,0 +1,38 @@
+@using Sc2Otter.Server.Services
+@using Sc2Otter.Core.Models
+@implements IDisposable
+
+<div class="connection-status">
+    <span class="connection-dot @(IsConnected ? "connected" : "disconnected")"></span>
+    <span>@StatusText</span>
+</div>
+
+@code {
+    [Inject] private IServiceProvider ServiceProvider { get; set; } = default!;
+
+    private bool IsConnected { get; set; }
+    private string StatusText => IsConnected ? "SC2 Connected" : "SC2 Offline";
+    private Timer? _timer;
+
+    protected override void OnInitialized()
+    {
+        _timer = new Timer(async _ =>
+        {
+            var monitor = ServiceProvider.GetServices<IHostedService>()
+                .OfType<GameStateMonitor>()
+                .FirstOrDefault();
+
+            var connected = monitor?.CurrentState != Sc2GameState.WaitingForSc2;
+            if (connected != IsConnected)
+            {
+                IsConnected = connected;
+                await InvokeAsync(StateHasChanged);
+            }
+        }, null, 0, 2000);
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+    }
+}

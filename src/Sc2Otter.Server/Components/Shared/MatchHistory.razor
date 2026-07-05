@@ -1,0 +1,34 @@
+<div class="match-list scrollable">
+    @if (Matches.Count == 0)
+    {
+        <div class="empty-state">
+            <p>No match history yet</p>
+        </div>
+    }
+    else
+    {
+        @foreach (var match in Matches)
+        {
+            <div class="match-item">
+                <span class="match-result @match.Result.ToString().ToLower()">@FormatResult(match.Result)</span>
+                <span class="match-map">@(match.MapName ?? "Unknown Map")</span>
+                @if (!string.IsNullOrEmpty(match.GameMode))
+                {
+                    <span class="match-mode">@match.GameMode</span>
+                }
+                <span class="match-date">@match.PlayedAt.ToLocalTime().ToString("MMM d, h:mm tt")</span>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public List<MatchRecord> Matches { get; set; } = [];
+
+    private static string FormatResult(MatchResult result) => result switch
+    {
+        MatchResult.Win => "W",
+        MatchResult.Loss => "L",
+        _ => "?"
+    };
+}

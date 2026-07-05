@@ -1,0 +1,39 @@
+<div class="note-editor">
+    <textarea @ref="_textArea"
+              @bind="NoteText"
+              @bind:event="oninput"
+              @onkeydown="HandleKeyDown"
+              placeholder="Add a note about this opponent..."
+              rows="2"></textarea>
+    <button class="btn btn-primary" @onclick="SaveNote" disabled="@(string.IsNullOrWhiteSpace(NoteText))">
+        💾 Save
+    </button>
+</div>
+
+@code {
+    [Parameter] public int OpponentId { get; set; }
+    [Parameter] public EventCallback<string> OnNoteSaved { get; set; }
+
+    private string NoteText { get; set; } = string.Empty;
+    private ElementReference _textArea;
+
+    public async Task FocusAsync()
+    {
+        await _textArea.FocusAsync();
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            await SaveNote();
+        }
+    }
+
+    private async Task SaveNote()
+    {
+        if (string.IsNullOrWhiteSpace(NoteText)) return;
+        await OnNoteSaved.InvokeAsync(NoteText.Trim());
+        NoteText = string.Empty;
+    }
+}

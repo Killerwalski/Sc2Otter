@@ -1,0 +1,31 @@
+@inherits LayoutComponentBase
+@using Sc2Otter.Server.Components.Shared
+
+<div class="app-container">
+    <nav class="sidebar">
+        <div class="sidebar-brand">
+            <span class="brand-icon">🦦</span>
+            <span class="brand-text">Sc2Otter</span>
+        </div>
+        <div class="nav-links">
+            <NavLink href="" Match="NavLinkMatch.All" class="nav-item">
+                <span class="nav-icon">🎮</span>
+                <span>Live Game</span>
+            </NavLink>
+            <NavLink href="opponents" class="nav-item">
+                <span class="nav-icon">👥</span>
+                <span>Opponents</span>
+            </NavLink>
+            <NavLink href="settings" class="nav-item">
+                <span class="nav-icon">⚙️</span>
+                <span>Settings</span>
+            </NavLink>
+        </div>
+        <div class="sidebar-footer">
+            <ConnectionStatus />
+        </div>
+    </nav>
+    <main class="main-content">
+        @Body
+    </main>
+</div>

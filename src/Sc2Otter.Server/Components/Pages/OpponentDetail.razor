@@ -1,0 +1,206 @@
+@page "/opponent/{Id:int}"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.SignalR.Client
+@using Sc2Otter.Core.Models
+@using Sc2Otter.Core.Events
+@using Sc2Otter.Core.Interfaces
+@using Sc2Otter.Server.Components.Shared
+@inject IOpponentRepository Repo
+@inject NavigationManager Navigation
+@implements IAsyncDisposable
+
+@if (Opponent is null)
+{
+    <div class="empty-state">
+        <div class="empty-state-icon">🔍</div>
+        <h3>Opponent not found</h3>
+    </div>
+}
+else
+{
+    <a href="/opponents" class="back-link">← Back to Opponents</a>
+
+    <div class="detail-header">
+        <div>
+            <div class="detail-name">@Opponent.Name</div>
+            <div class="detail-meta">
+                <span>@(Opponent.Race ?? "Unknown Race")</span>
+                <span>First seen: @Opponent.FirstSeen.ToLocalTime().ToString("MMM d, yyyy")</span>
+                <span>Last seen: @Opponent.LastSeen.ToLocalTime().ToString("MMM d, yyyy")</span>
+            </div>
+        </div>
+        <div class="opponent-stats" style="margin-left: auto;">
+            <div class="stat"><span class="stat-value total">@TotalGames</span><span class="stat-label">Games</span></div>
+            <div class="stat"><span class="stat-value wins">@Wins</span><span class="stat-label">Wins</span></div>
+            <div class="stat"><span class="stat-value losses">@Losses</span><span class="stat-label">Losses</span></div>
+        </div>
+    </div>
+
+    @if (TotalGames > 0)
+    {
+        <div class="winrate-bar" style="margin-bottom: 20px; height: 6px;">
+            <div class="winrate-fill" style="width: @((int)(Wins * 100.0 / TotalGames))%"></div>
+        </div>
+    }
+
+    <div class="detail-sections">
+        <div class="detail-section">
+            <div class="detail-section-title">Tags</div>
+            <TagSelector OpponentId="@Opponent.Id"
+                         SelectedTags="@SelectedTags"
+                         OnTagAdded="HandleTagAdded"
+                         OnTagRemoved="HandleTagRemoved" />
+        </div>
+
+        <div class="detail-section">
+            <div class="detail-section-title">Match History (@TotalGames games)</div>
+            <MatchHistory Matches="@Opponent.MatchRecords.ToList()" />
+        </div>
+
+        <div class="detail-section full-width">
+            <div class="detail-section-title">Notes (@Opponent.Notes.Count)</div>
+            <NoteEditor OpponentId="@Opponent.Id" OnNoteSaved="HandleNoteSaved" />
+
+            <div class="notes-list scrollable" style="margin-top: 12px">
+                @if (Opponent.Notes.Count == 0)
+                {
+                    <div class="empty-state">
+                        <p>No notes yet. Add your first scouting note above!</p>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var note in Opponent.Notes)
+                    {
+                        <div class="note-item">
+                            @if (EditingNoteId == note.Id)
+                            {
+                                <div class="note-editor">
+                                    <textarea @bind="EditNoteText" rows="2"></textarea>
+                                    <button class="btn btn-primary btn-sm" @onclick="() => SaveEditNote(note.Id)">Save</button>
+                                    <button class="btn btn-secondary btn-sm" @onclick="CancelEdit">Cancel</button>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="note-content">@note.Content</div>
+                                <div class="note-meta">
+                                    <span>@note.CreatedAt.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</span>
+                                    <span class="note-source">@(note.Source == "voice" ? "🎤 Voice" : "⌨️ Typed")</span>
+                                    @if (note.UpdatedAt.HasValue)
+                                    {
+                                        <span>(edited)</span>
+                                    }
+                                </div>
+                                <div class="note-actions">
+                                    <button class="btn-icon" title="Edit" @onclick="() => StartEditNote(note.Id, note.Content)">✏️</button>
+                                    <button class="btn-icon" title="Delete" @onclick="() => DeleteNote(note.Id)">🗑️</button>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private Opponent? Opponent { get; set; }
+    private List<string> SelectedTags { get; set; } = [];
+    private int TotalGames { get; set; }
+    private int Wins { get; set; }
+    private int Losses { get; set; }
+    private int? EditingNoteId { get; set; }
+    private string EditNoteText { get; set; } = string.Empty;
+    private HubConnection? _hubConnection;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadOpponent();
+
+        if (_hubConnection is null)
+        {
+            _hubConnection = new HubConnectionBuilder()
+                .WithUrl(Navigation.ToAbsoluteUri("/scouthub"))
+                .WithAutomaticReconnect()
+                .Build();
+
+            _hubConnection.On("ActivateNoteInput", async () =>
+            {
+                await InvokeAsync(StateHasChanged);
+            });
+
+            await _hubConnection.StartAsync();
+        }
+    }
+
+    private async Task LoadOpponent()
+    {
+        Opponent = await Repo.GetWithDetailsAsync(Id);
+        if (Opponent is not null)
+        {
+            SelectedTags = Opponent.Tags.Select(t => t.Name).ToList();
+            var stats = await Repo.GetStatsAsync(Id);
+            TotalGames = stats.TotalGames;
+            Wins = stats.Wins;
+            Losses = stats.Losses;
+        }
+    }
+
+    private async Task HandleNoteSaved(string content)
+    {
+        await Repo.AddNoteAsync(Id, content);
+        await LoadOpponent();
+    }
+
+    private async Task HandleTagAdded(string tagName)
+    {
+        await Repo.AddTagAsync(Id, tagName);
+        SelectedTags.Add(tagName);
+        StateHasChanged();
+    }
+
+    private async Task HandleTagRemoved(string tagName)
+    {
+        await Repo.RemoveTagAsync(Id, tagName);
+        SelectedTags.Remove(tagName);
+        StateHasChanged();
+    }
+
+    private void StartEditNote(int noteId, string content)
+    {
+        EditingNoteId = noteId;
+        EditNoteText = content;
+    }
+
+    private void CancelEdit()
+    {
+        EditingNoteId = null;
+        EditNoteText = string.Empty;
+    }
+
+    private async Task SaveEditNote(int noteId)
+    {
+        await Repo.UpdateNoteAsync(noteId, EditNoteText);
+        EditingNoteId = null;
+        EditNoteText = string.Empty;
+        await LoadOpponent();
+    }
+
+    private async Task DeleteNote(int noteId)
+    {
+        await Repo.DeleteNoteAsync(noteId);
+        await LoadOpponent();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hubConnection is not null)
+        {
+            await _hubConnection.DisposeAsync();
+        }
+    }
+}

@@ -1,0 +1,35 @@
+@inject IOpponentRepository Repo
+
+<div class="tag-selector">
+    @foreach (var tag in AllTags)
+    {
+        var isSelected = SelectedTags.Contains(tag.Name);
+        <button class="tag-option @(isSelected ? "selected" : "")"
+                style="@(tag.Color != null ? $"color: {tag.Color}; border-color: {(isSelected ? tag.Color : "")}; background: {(isSelected ? tag.Color + "22" : "")}" : "")"
+                @onclick="() => ToggleTag(tag.Name)">
+            @tag.Name
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter] public int OpponentId { get; set; }
+    [Parameter] public List<string> SelectedTags { get; set; } = [];
+    [Parameter] public EventCallback<string> OnTagAdded { get; set; }
+    [Parameter] public EventCallback<string> OnTagRemoved { get; set; }
+
+    private List<OpponentTag> AllTags { get; set; } = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        AllTags = await Repo.GetAllTagsAsync();
+    }
+
+    private async Task ToggleTag(string tagName)
+    {
+        if (SelectedTags.Contains(tagName))
+            await OnTagRemoved.InvokeAsync(tagName);
+        else
+            await OnTagAdded.InvokeAsync(tagName);
+    }
+}

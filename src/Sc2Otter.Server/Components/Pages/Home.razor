@@ -1,0 +1,242 @@
+@page "/"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.SignalR.Client
+@using Sc2Otter.Core.Events
+@using Sc2Otter.Core.Models
+@using Sc2Otter.Core.Interfaces
+@using Sc2Otter.Server.Components.Shared
+@inject NavigationManager Navigation
+@inject IOpponentRepository Repo
+@implements IAsyncDisposable
+
+<div class="page-header">
+    <h1>Live Game</h1>
+    <p>Real-time opponent scouting powered by the SC2 Game Client API</p>
+</div>
+
+<div class="live-panel @(CurrentState != Sc2GameState.WaitingForSc2 && CurrentState != Sc2GameState.InMenus ? "has-game" : "")">
+    <div class="live-panel-header">
+        <span class="live-indicator @(CurrentState != Sc2GameState.WaitingForSc2 ? "active" : "")"></span>
+        <span class="live-status">@GetStatusText()</span>
+        <span class="state-badge @GetStateBadgeClass()">@CurrentState</span>
+    </div>
+
+    @if (DetectedOpponents.Count > 0)
+    {
+        <div class="opponents-grid">
+            @foreach (var opp in DetectedOpponents)
+            {
+                <div class="opponent-card race-@(opp.Race?.ToLower() ?? "random")" @onclick="() => NavigateToOpponent(opp.OpponentId)">
+                    <div class="opponent-card-header">
+                        <span class="opponent-name">@opp.Name</span>
+                        <span class="opponent-race">@(opp.Race ?? "Unknown")</span>
+                    </div>
+
+                    <div class="opponent-stats">
+                        <div class="stat">
+                            <span class="stat-value total">@opp.TotalGames</span>
+                            <span class="stat-label">Games</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value wins">@opp.Wins</span>
+                            <span class="stat-label">Wins</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value losses">@opp.Losses</span>
+                            <span class="stat-label">Losses</span>
+                        </div>
+                    </div>
+
+                    @if (opp.TotalGames > 0)
+                    {
+                        <div class="winrate-bar">
+                            <div class="winrate-fill" style="width: @(opp.TotalGames > 0 ? (int)(opp.Wins * 100.0 / opp.TotalGames) : 0)%"></div>
+                        </div>
+                    }
+
+                    @if (opp.Tags.Count > 0)
+                    {
+                        <div class="tags-container">
+                            @foreach (var tag in opp.Tags)
+                            {
+                                <span class="tag">@tag</span>
+                            }
+                        </div>
+                    }
+
+                    @if (opp.Notes.Count > 0)
+                    {
+                        <div class="notes-list" style="margin-top: 12px">
+                            @foreach (var note in opp.Notes.Take(3))
+                            {
+                                <div class="note-item">
+                                    <div class="note-content">@note.Content</div>
+                                    <div class="note-meta">
+                                        <span>@note.CreatedAt.ToLocalTime().ToString("MMM d, h:mm tt")</span>
+                                        <span class="note-source">@(note.Source == "voice" ? "🎤" : "⌨️")</span>
+                                    </div>
+                                </div>
+                            }
+                            @if (opp.Notes.Count > 3)
+                            {
+                                <div style="font-size: 13px; color: var(--text-muted); padding: 4px 0;">+ @(opp.Notes.Count - 3) more notes</div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div style="font-size: 13px; color: var(--text-muted); margin-top: 8px;">No notes yet — click to add</div>
+                    }
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="empty-state">
+            <div class="empty-state-icon">🦦</div>
+            <h3>@GetEmptyText()</h3>
+            <p>@GetEmptySubtext()</p>
+        </div>
+    }
+</div>
+
+<div class="hotkey-hint">
+    <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd>
+    <span>— Quick add note for current opponent</span>
+</div>
+
+@if (RecentOpponents.Count > 0)
+{
+    <div style="margin-top: 24px;">
+        <div class="card-header">
+            <h2 class="card-title">Recent Opponents</h2>
+        </div>
+        <div class="opponents-grid">
+            @foreach (var opp in RecentOpponents)
+            {
+                var wins = opp.MatchRecords.Count(m => m.Result == MatchResult.Win);
+                var losses = opp.MatchRecords.Count(m => m.Result == MatchResult.Loss);
+                var total = opp.MatchRecords.Count;
+
+                <div class="opponent-card race-@(opp.Race?.ToLower() ?? "random")" @onclick="() => NavigateToOpponent(opp.Id)">
+                    <div class="opponent-card-header">
+                        <span class="opponent-name">@opp.Name</span>
+                        <span class="opponent-race">@(opp.Race ?? "Unknown")</span>
+                    </div>
+                    <div class="opponent-stats">
+                        <div class="stat"><span class="stat-value total">@total</span><span class="stat-label">Games</span></div>
+                        <div class="stat"><span class="stat-value wins">@wins</span><span class="stat-label">Wins</span></div>
+                        <div class="stat"><span class="stat-value losses">@losses</span><span class="stat-label">Losses</span></div>
+                    </div>
+                    @if (opp.Tags.Count > 0)
+                    {
+                        <div class="tags-container">
+                            @foreach (var tag in opp.Tags)
+                            {
+                                <span class="tag">@tag.Name</span>
+                            }
+                        </div>
+                    }
+                    <div class="note-meta" style="margin-top: 8px">
+                        <span>Last seen: @opp.LastSeen.ToLocalTime().ToString("MMM d, h:mm tt")</span>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private HubConnection? _hubConnection;
+    private Sc2GameState CurrentState { get; set; } = Sc2GameState.WaitingForSc2;
+    private List<OpponentDetectedEvent> DetectedOpponents { get; set; } = [];
+    private List<Opponent> RecentOpponents { get; set; } = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        RecentOpponents = await Repo.GetRecentAsync(6);
+
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/scouthub"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        _hubConnection.On<List<OpponentDetectedEvent>>("OpponentsDetected", async (opponents) =>
+        {
+            DetectedOpponents = opponents;
+            await InvokeAsync(StateHasChanged);
+        });
+
+        _hubConnection.On<GameStateChangedEvent>("GameStateChanged", async (e) =>
+        {
+            CurrentState = e.State;
+            if (e.Opponents is not null)
+            {
+                DetectedOpponents = e.Opponents;
+            }
+            if (e.State == Sc2GameState.InMenus || e.State == Sc2GameState.WaitingForSc2)
+            {
+                DetectedOpponents = [];
+                RecentOpponents = await Repo.GetRecentAsync(6);
+            }
+            await InvokeAsync(StateHasChanged);
+        });
+
+        _hubConnection.On("ActivateNoteInput", async () =>
+        {
+            if (DetectedOpponents.Count > 0)
+            {
+                await InvokeAsync(() => Navigation.NavigateTo($"/opponent/{DetectedOpponents[0].OpponentId}"));
+            }
+        });
+
+        await _hubConnection.StartAsync();
+    }
+
+    private string GetStatusText() => CurrentState switch
+    {
+        Sc2GameState.WaitingForSc2 => "Waiting for StarCraft II...",
+        Sc2GameState.InMenus => "In Menus",
+        Sc2GameState.LoadingScreen => "Game Loading — Opponents Detected!",
+        Sc2GameState.InGame => $"In Game vs {string.Join(", ", DetectedOpponents.Select(o => o.Name))}",
+        Sc2GameState.PostGame => "Game Over",
+        _ => "Unknown"
+    };
+
+    private string GetStateBadgeClass() => CurrentState switch
+    {
+        Sc2GameState.WaitingForSc2 => "waiting",
+        Sc2GameState.InMenus => "menus",
+        Sc2GameState.LoadingScreen => "loading",
+        Sc2GameState.InGame => "in-game",
+        Sc2GameState.PostGame => "post-game",
+        _ => ""
+    };
+
+    private string GetEmptyText() => CurrentState switch
+    {
+        Sc2GameState.WaitingForSc2 => "Waiting for StarCraft II",
+        Sc2GameState.InMenus => "Ready to scout",
+        Sc2GameState.InGame => "In game",
+        _ => "Standing by"
+    };
+
+    private string GetEmptySubtext() => CurrentState switch
+    {
+        Sc2GameState.WaitingForSc2 => "Launch StarCraft II and Sc2Otter will automatically connect",
+        Sc2GameState.InMenus => "Queue up a game and your opponent's notes will appear here",
+        Sc2GameState.InGame => "Good luck, have fun!",
+        _ => ""
+    };
+
+    private void NavigateToOpponent(int id) => Navigation.NavigateTo($"/opponent/{id}");
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hubConnection is not null)
+        {
+            await _hubConnection.DisposeAsync();
+        }
+    }
+}
