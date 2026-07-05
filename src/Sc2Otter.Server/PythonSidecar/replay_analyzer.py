@@ -16,10 +16,6 @@ def analyze_replay(replay_path, my_name=None):
         
         # Determine players (filter out computers if needed, but keeping simple for now)
         players = [p for p in replay.players if p.is_human]
-        
-        # If my_name is provided, we only analyze opponents
-        if my_name:
-            players = [p for p in players if p.name.lower() != my_name.lower()]
             
         for player in players:
             player_result = {
@@ -82,9 +78,8 @@ def analyze_replay(replay_path, my_name=None):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print(json.dumps({"success": False, "error": "Usage: python replay_analyzer.py <replay_path> [my_sc2_name]"}))
+        print(json.dumps({"success": False, "error": "Usage: python replay_analyzer.py <replay_path>"}))
         sys.exit(1)
         
     replay_path = sys.argv[1]
-    my_name = sys.argv[2] if len(sys.argv) > 2 else None
-    analyze_replay(replay_path, my_name)
+    analyze_replay(replay_path)

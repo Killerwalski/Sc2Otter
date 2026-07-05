@@ -34,11 +34,6 @@ public class ReplayAnalysisService(
                 CreateNoWindow = true
             };
 
-            if (!string.IsNullOrWhiteSpace(myName))
-            {
-                processStartInfo.ArgumentList.Add(myName);
-            }
-
             using var process = Process.Start(processStartInfo);
             if (process == null)
             {
@@ -74,10 +69,25 @@ public class ReplayAnalysisService(
             {
                 using var scope = scopeFactory.CreateScope();
                 var repo = scope.ServiceProvider.GetRequiredService<IOpponentRepository>();
+                
+                var namesToIgnore = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (!string.IsNullOrWhiteSpace(myName))
+                {
+                    foreach (var name in myName.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        namesToIgnore.Add(name.Trim());
+                    }
+                }
 
                 foreach (var playerResult in result.Data)
                 {
                     if (playerResult.Tags.Count == 0 && playerResult.Notes.Count == 0) continue;
+                    
+                    if (namesToIgnore.Contains(playerResult.Name))
+                    {
+                        logger.LogInformation("Skipping analysis save for ignored player: {Name}", playerResult.Name);
+                        continue;
+                    }
 
                     var opponent = await repo.GetOrCreateAsync(playerResult.Name, playerResult.Race, ct);
                     
