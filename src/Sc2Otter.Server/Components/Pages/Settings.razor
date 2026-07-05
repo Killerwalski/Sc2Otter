@@ -103,7 +103,11 @@
                 <div class="setting-label">Bulk Scan Replays</div>
                 <div class="setting-description">Scans all replays in directory since the cutoff date</div>
             </div>
-            <div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                @if (!string.IsNullOrEmpty(ScanProgressMessage))
+                {
+                    <span style="color: var(--text-muted); font-size: 13px;">@ScanProgressMessage</span>
+                }
                 <button class="btn btn-secondary" style="padding: 6px 12px;" @onclick="StartBulkScan" disabled="@IsScanning">
                     @(IsScanning ? "Scanning..." : "Scan Replays")
                 </button>
@@ -157,6 +161,7 @@
     private bool IsWiping = false;
 
     private string WipeMessage = "";
+    private string ScanProgressMessage = "";
 
     protected override void OnInitialized()
     {
@@ -234,24 +239,45 @@
                     .ToList();
                     
                 Logger.LogInformation("Found {Count} replays to scan", files.Count);
+                ScanProgressMessage = $"Found {files.Count} replays to scan...";
+                await InvokeAsync(StateHasChanged);
                 
                 int count = 0;
+                int imported = 0;
                 foreach (var file in files)
                 {
-                    await ReplayAnalyzer.AnalyzeReplayAsync(file);
+                    var success = await ReplayAnalyzer.AnalyzeReplayAsync(file);
+                    if (success) imported++;
+                    
                     count++;
-                    if (count % 10 == 0) Logger.LogInformation("Scanned {Count}/{Total} replays...", count, files.Count);
+                    if (count % 5 == 0)
+                    {
+                        ScanProgressMessage = $"Scanned {count}/{files.Count}...";
+                        await InvokeAsync(StateHasChanged);
+                    }
                 }
-                Logger.LogInformation("Finished scanning all {Total} replays", files.Count);
+                Logger.LogInformation("Finished scanning all {Total} replays. Imported: {Imported}", files.Count, imported);
+                ScanProgressMessage = $"Finished! Scanned {files.Count}, Imported {imported}.";
             }
             catch (Exception ex)
             {
                 Logger.LogError(ex, "Error during bulk replay scan");
+                ScanProgressMessage = "Error during scan. See logs.";
             }
             finally
             {
                 IsScanning = false;
                 await InvokeAsync(StateHasChanged);
+                
+                _ = Task.Run(async () => 
+                {
+                    await Task.Delay(5000);
+                    if (!IsScanning)
+                    {
+                        ScanProgressMessage = "";
+                        await InvokeAsync(StateHasChanged);
+                    }
+                });
             }
         });
     }

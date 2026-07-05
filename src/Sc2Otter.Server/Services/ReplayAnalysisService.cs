@@ -12,12 +12,12 @@ public class ReplayAnalysisService(
 {
     private readonly string _pythonScriptPath = Path.Combine(AppContext.BaseDirectory, "PythonSidecar", "replay_analyzer.py");
 
-    public async Task AnalyzeReplayAsync(string replayPath, CancellationToken ct = default)
+    public async Task<bool> AnalyzeReplayAsync(string replayPath, CancellationToken ct = default)
     {
         if (!File.Exists(replayPath))
         {
             logger.LogWarning("Replay file not found: {Path}", replayPath);
-            return;
+            return false;
         }
 
         var myName = settingsService.Current.MySc2Name;
@@ -39,7 +39,7 @@ public class ReplayAnalysisService(
             if (process == null)
             {
                 logger.LogError("Failed to start python process.");
-                return;
+                return false;
             }
 
             var outputTask = process.StandardOutput.ReadToEndAsync(ct);
@@ -53,7 +53,7 @@ public class ReplayAnalysisService(
             if (process.ExitCode != 0)
             {
                 logger.LogError("Python script failed with exit code {Code}. Error: {Error}", process.ExitCode, error);
-                return;
+                return false;
             }
 
             // Parse output
@@ -63,7 +63,7 @@ public class ReplayAnalysisService(
             if (result == null || !result.Success)
             {
                 logger.LogError("Python script returned failure: {Error}", result?.Error);
-                return;
+                return false;
             }
 
             if (result.Data != null)
@@ -113,12 +113,14 @@ public class ReplayAnalysisService(
                         await repo.RecordMatchAsync(opponent.Id, ourResult, result.MapName, null, playerResult.Race, null, result.StartTime, ct);
                     }
                 }
+                return true;
             }
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error executing replay analysis");
         }
+        return false;
     }
 
     private class ReplayAnalysisResult
