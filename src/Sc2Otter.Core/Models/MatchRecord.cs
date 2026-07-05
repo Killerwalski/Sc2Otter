@@ -18,5 +18,14 @@ public class MatchRecord
     public string? GameMode { get; set; }
     public DateTime PlayedAt { get; set; } = DateTime.UtcNow;
 
+    public int? MyWorkersCreated { get; set; }
+    public int? OpponentWorkersCreated { get; set; }
+    public int? MySupplyBlockTime { get; set; }
+    public int? OpponentSupplyBlockTime { get; set; }
+    public int? MyAvgUnspentMinerals { get; set; }
+    public int? OpponentAvgUnspentMinerals { get; set; }
+    public int? MyAvgMineralIncome { get; set; }
+    public int? OpponentAvgMineralIncome { get; set; }
+
     public Opponent Opponent { get; set; } = null!;
 }

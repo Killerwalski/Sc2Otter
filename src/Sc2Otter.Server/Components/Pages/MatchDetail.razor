@@ -1,0 +1,95 @@
+@page "/match/{Id:int}"
+@rendermode InteractiveServer
+@using Sc2Otter.Core.Models
+@using Sc2Otter.Core.Interfaces
+@using Sc2Otter.Server.Components.Shared
+@inject IOpponentRepository Repo
+@inject NavigationManager Navigation
+
+@if (Match is null)
+{
+    <div class="empty-state">
+        <div class="empty-state-icon">🔍</div>
+        <h3>Match not found</h3>
+    </div>
+}
+else
+{
+    <a href="/opponent/@Match.OpponentId" class="back-link">← Back to @Match.Opponent.Name</a>
+
+    <div class="detail-header">
+        <div>
+            <div class="detail-name">Match Summary</div>
+            <div class="detail-meta">
+                <span>@(Match.GameMode ?? "Unknown Mode")</span>
+                <span>@(Match.MapName ?? "Unknown Map")</span>
+                <span>@Match.PlayedAt.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</span>
+            </div>
+        </div>
+        <div class="opponent-stats" style="margin-left: auto;">
+            @if (Match.Result == MatchResult.Win)
+            {
+                <div class="stat"><span class="stat-value wins">VICTORY</span></div>
+            }
+            else if (Match.Result == MatchResult.Loss)
+            {
+                <div class="stat"><span class="stat-value losses">DEFEAT</span></div>
+            }
+            else
+            {
+                <div class="stat"><span class="stat-value total">UNKNOWN</span></div>
+            }
+        </div>
+    </div>
+
+    <div class="card match-stats-card" style="margin-top: 24px;">
+        <div class="stats-comparison">
+            <div class="stats-column you">
+                <h3>You</h3>
+                <div class="stats-race">@(Match.MyRace ?? "Unknown")</div>
+            </div>
+            
+            <div class="stats-column middle">
+                <h3>VS</h3>
+            </div>
+
+            <div class="stats-column opponent">
+                <h3>@Match.Opponent.Name</h3>
+                <div class="stats-race">@(Match.OpponentRace ?? "Unknown")</div>
+            </div>
+        </div>
+
+        <div class="stats-metrics">
+            <StatRow Label="Workers Created" 
+                     MyValue="@Match.MyWorkersCreated" 
+                     OpponentValue="@Match.OpponentWorkersCreated" 
+                     LowerIsBetter="false" />
+                     
+            <StatRow Label="Avg Unspent Minerals" 
+                     MyValue="@Match.MyAvgUnspentMinerals" 
+                     OpponentValue="@Match.OpponentAvgUnspentMinerals" 
+                     LowerIsBetter="true" />
+                     
+            <StatRow Label="Avg Mineral Income" 
+                     MyValue="@Match.MyAvgMineralIncome" 
+                     OpponentValue="@Match.OpponentAvgMineralIncome" 
+                     LowerIsBetter="false" />
+                     
+            <StatRow Label="Time Supply Blocked" 
+                     MyValue="@Match.MySupplyBlockTime" 
+                     OpponentValue="@Match.OpponentSupplyBlockTime" 
+                     Format="s"
+                     LowerIsBetter="true" />
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private MatchRecord? Match { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        Match = await Repo.GetMatchByIdAsync(Id);
+    }
+}

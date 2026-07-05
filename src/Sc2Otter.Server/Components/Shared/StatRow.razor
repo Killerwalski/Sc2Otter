@@ -1,0 +1,61 @@
+@if (MyValue.HasValue || OpponentValue.HasValue)
+{
+    <div class="stat-row">
+        <div class="stat-label-center">@Label</div>
+        <div class="stat-values">
+            <div class="stat-value-cell my-val @(GetWinnerClass(true))">
+                @(MyValue.HasValue ? $"{MyValue}{Format}" : "-")
+            </div>
+            
+            <div class="stat-bar-container">
+                @if (MyValue.HasValue && OpponentValue.HasValue)
+                {
+                    <div class="stat-bar-track">
+                        <div class="stat-bar my-bar" style="width: @(GetMyPercentage())%"></div>
+                        <div class="stat-bar opp-bar" style="width: @(GetOpponentPercentage())%"></div>
+                    </div>
+                }
+            </div>
+            
+            <div class="stat-value-cell opp-val @(GetWinnerClass(false))">
+                @(OpponentValue.HasValue ? $"{OpponentValue}{Format}" : "-")
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public int? MyValue { get; set; }
+    [Parameter] public int? OpponentValue { get; set; }
+    [Parameter] public string Format { get; set; } = "";
+    [Parameter] public bool LowerIsBetter { get; set; } = false;
+
+    private string GetWinnerClass(bool isMyVal)
+    {
+        if (!MyValue.HasValue || !OpponentValue.HasValue) return "";
+        if (MyValue == OpponentValue) return "tie";
+        
+        bool iWon = LowerIsBetter ? MyValue < OpponentValue : MyValue > OpponentValue;
+        
+        return isMyVal == iWon ? "winner" : "loser";
+    }
+
+    private double GetMyPercentage()
+    {
+        if (!MyValue.HasValue || !OpponentValue.HasValue) return 50;
+        if (MyValue == 0 && OpponentValue == 0) return 50;
+        
+        double total = MyValue.Value + OpponentValue.Value;
+        return (MyValue.Value / total) * 100;
+    }
+
+    private double GetOpponentPercentage()
+    {
+        if (!MyValue.HasValue || !OpponentValue.HasValue) return 50;
+        if (MyValue == 0 && OpponentValue == 0) return 50;
+        
+        double total = MyValue.Value + OpponentValue.Value;
+        return (OpponentValue.Value / total) * 100;
+    }
+}

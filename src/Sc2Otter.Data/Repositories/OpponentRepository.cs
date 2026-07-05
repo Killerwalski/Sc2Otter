@@ -158,7 +158,7 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
         return await db.Tags.OrderBy(t => t.Name).ToListAsync(ct);
     }
 
-    public async Task<MatchRecord> RecordMatchAsync(int opponentId, MatchResult result, string? mapName = null, string? myRace = null, string? opponentRace = null, string? gameMode = null, DateTime? playedAt = null, CancellationToken ct = default)
+    public async Task<MatchRecord> RecordMatchAsync(int opponentId, MatchResult result, string? mapName = null, string? myRace = null, string? opponentRace = null, string? gameMode = null, DateTime? playedAt = null, Action<MatchRecord>? updateStats = null, CancellationToken ct = default)
     {
         var recordTime = playedAt ?? DateTime.UtcNow;
         var record = new MatchRecord
@@ -171,6 +171,9 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
             GameMode = gameMode,
             PlayedAt = recordTime
         };
+        
+        updateStats?.Invoke(record);
+
         db.MatchRecords.Add(record);
 
         var opponent = await db.Opponents.FindAsync([opponentId], ct);
@@ -185,6 +188,13 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
 
         await db.SaveChangesAsync(ct);
         return record;
+    }
+
+    public async Task<MatchRecord?> GetMatchByIdAsync(int matchId, CancellationToken ct = default)
+    {
+        return await db.MatchRecords
+            .Include(m => m.Opponent)
+            .FirstOrDefaultAsync(m => m.Id == matchId, ct);
     }
 
     public async Task<(int TotalGames, int Wins, int Losses)> GetStatsAsync(int opponentId, CancellationToken ct = default)

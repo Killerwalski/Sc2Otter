@@ -9,13 +9,14 @@
     {
         @foreach (var match in Matches)
         {
-            <div class="match-item">
+            <a href="/match/@match.Id" class="match-item" style="text-decoration: none; display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: var(--radius-sm); font-size: 13px; color: var(--text-primary); cursor: pointer; transition: background 0.2s;">
                 <span class="match-result @match.Result.ToString().ToLower()">@FormatResult(match.Result)</span>
                 <span class="match-map">
                     @(match.MapName ?? "Unknown Map")@(string.IsNullOrEmpty(match.GameMode) ? "" : $" ({match.GameMode})")
                 </span>
-                <span class="match-date">@match.PlayedAt.ToLocalTime().ToString("MMM d, h:mm tt")</span>
-            </div>
+                <span class="match-date" style="margin-left: auto;">@match.PlayedAt.ToLocalTime().ToString("MMM d, h:mm tt")</span>
+                <span class="chevron" style="color: var(--text-muted);">&rsaquo;</span>
+            </a>
         }
     }
 </div>

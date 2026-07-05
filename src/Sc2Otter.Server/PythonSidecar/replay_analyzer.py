@@ -22,8 +22,13 @@ def analyze_replay(replay_path, my_name=None):
                 "name": player.name,
                 "race": player.play_race,
                 "result": player.result,
-                "tags": [],
-                "notes": []
+                "notes": [],
+                "stats": {
+                    "workersCreated": 0,
+                    "supplyBlockTime": 0,
+                    "avgUnspentMinerals": 0,
+                    "avgMineralIncome": 0
+                }
             }
             
             # Check if they picked random
@@ -115,6 +120,18 @@ def analyze_replay(replay_path, my_name=None):
                     elif unit_name == 'DarkShrine':
                         if time_sec < dark_shrine_time:
                             dark_shrine_time = time_sec
+                            
+                elif event.name == 'UnitBornEvent' and event.control_pid == player.pid:
+                    if event.unit.name in ['SCV', 'Probe', 'Drone']:
+                        player_result["stats"]["workersCreated"] += 1
+                        
+            # Analyze player stats for supply block and unspent minerals
+            stats_events = [e for e in replay.tracker_events if e.name == 'PlayerStatsEvent' and getattr(e, 'pid', None) == player.pid]
+            if stats_events:
+                blocked_events = [e for e in stats_events if e.food_used >= e.food_made and e.food_made > 0]
+                player_result["stats"]["supplyBlockTime"] = len(blocked_events) * 10
+                player_result["stats"]["avgUnspentMinerals"] = int(sum(e.minerals_current for e in stats_events) / len(stats_events))
+                player_result["stats"]["avgMineralIncome"] = int(sum(e.minerals_collection_rate for e in stats_events) / len(stats_events))
                                     
             # 3. Expansion First Detection
             if first_exp_time < first_prod_time and first_exp_time < 300:

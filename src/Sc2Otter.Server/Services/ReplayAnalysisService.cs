@@ -80,6 +80,8 @@ public class ReplayAnalysisService(
                     }
                 }
 
+                var myResult = result.Data.FirstOrDefault(p => namesToIgnore.Contains(p.Name));
+
                 foreach (var playerResult in result.Data)
                 {
                     if (namesToIgnore.Contains(playerResult.Name))
@@ -116,7 +118,22 @@ public class ReplayAnalysisService(
                         ourResult = opponentWon ? MatchResult.Loss : MatchResult.Win;
                     }
                     
-                    await repo.RecordMatchAsync(opponent.Id, ourResult, result.MapName, null, playerResult.Race, result.GameMode, result.StartTime, ct);
+                    await repo.RecordMatchAsync(opponent.Id, ourResult, result.MapName, null, playerResult.Race, result.GameMode, result.StartTime, match => {
+                        if (myResult?.Stats != null)
+                        {
+                            match.MyWorkersCreated = myResult.Stats.WorkersCreated;
+                            match.MySupplyBlockTime = myResult.Stats.SupplyBlockTime;
+                            match.MyAvgUnspentMinerals = myResult.Stats.AvgUnspentMinerals;
+                            match.MyAvgMineralIncome = myResult.Stats.AvgMineralIncome;
+                        }
+                        if (playerResult.Stats != null)
+                        {
+                            match.OpponentWorkersCreated = playerResult.Stats.WorkersCreated;
+                            match.OpponentSupplyBlockTime = playerResult.Stats.SupplyBlockTime;
+                            match.OpponentAvgUnspentMinerals = playerResult.Stats.AvgUnspentMinerals;
+                            match.OpponentAvgMineralIncome = playerResult.Stats.AvgMineralIncome;
+                        }
+                    }, ct);
                 }
                 return true;
             }
@@ -145,5 +162,14 @@ public class ReplayAnalysisService(
         public string? Result { get; set; }
         public List<string> Tags { get; set; } = [];
         public List<string> Notes { get; set; } = [];
+        public PlayerStatsResult? Stats { get; set; }
+    }
+
+    private class PlayerStatsResult
+    {
+        public int WorkersCreated { get; set; }
+        public int SupplyBlockTime { get; set; }
+        public int AvgUnspentMinerals { get; set; }
+        public int AvgMineralIncome { get; set; }
     }
 }
