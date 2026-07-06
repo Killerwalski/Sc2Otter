@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,7 +10,7 @@ using Sc2Otter.LocalClient.Services;
 
 var settingsService = new SettingsService();
 
-if (args.Length == 0)
+if (!args.Contains("--run"))
 {
     while (true)
     {
@@ -61,6 +62,10 @@ if (args.Length == 0)
             break;
         }
     }
+}
+else
+{
+    Console.WriteLine("Starting in auto-run mode...");
 }
 
 var builder = Host.CreateApplicationBuilder(args);
