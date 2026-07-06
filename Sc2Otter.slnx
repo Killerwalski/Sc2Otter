@@ -2,7 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/Sc2Otter.Core/Sc2Otter.Core.csproj" />
     <Project Path="src/Sc2Otter.Data/Sc2Otter.Data.csproj" />
-    <Project Path="src/Sc2Otter.LocalClient/Sc2Otter.LocalClient.csproj" />
+    <Project Path="src/Sc2Otter.LocalOtter/Sc2Otter.LocalOtter.csproj" />
     <Project Path="src/Sc2Otter.Server/Sc2Otter.Server.csproj" />
   </Folder>
   <Folder Name="/tests/">

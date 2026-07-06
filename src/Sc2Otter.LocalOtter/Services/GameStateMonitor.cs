@@ -1,10 +1,10 @@
-namespace Sc2Otter.LocalClient.Services;
+namespace Sc2Otter.LocalOtter.Services;
 
 using Microsoft.AspNetCore.SignalR;
 using Sc2Otter.Core.Events;
 using Sc2Otter.Core.Interfaces;
 using Sc2Otter.Core.Models;
-using Sc2Otter.LocalClient.Services;
+using Sc2Otter.LocalOtter.Services;
 
 public class GameStateMonitor : BackgroundService
 {

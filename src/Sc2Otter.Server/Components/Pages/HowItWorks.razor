@@ -3,7 +3,7 @@
 
 <div class="page-header">
     <h2>Getting Started with Sc2Otter</h2>
-    <p style="color: var(--text-muted);">A quick guide on how to install the Local Client and link it to your Web App to supercharge your StarCraft 2 scouting.</p>
+    <p style="color: var(--text-muted);">A quick guide on how to install the LocalOtter and link it to your Web App to supercharge your StarCraft 2 scouting.</p>
 </div>
 
 <div class="card guide-card" style="margin-top: 24px; padding: 32px;">
@@ -11,7 +11,7 @@
     <div class="guide-section">
         <h3 class="guide-title">0. Installation</h3>
         <p class="guide-text">
-            Sc2Otter relies on a lightweight background program on your PC called the <strong>Local Client</strong>. 
+            Sc2Otter relies on a lightweight background program on your PC called the <strong>LocalOtter</strong>. 
             You can find the easy installation instructions on our <a href="https://github.com/Killerwalski/Sc2Otter" target="_blank" style="color: var(--accent-primary); text-decoration: underline;">GitHub Repository</a>.
         </p>
     </div>
@@ -19,7 +19,7 @@
     <div class="guide-section">
         <h3 class="guide-title">1. The Sync Key Connection</h3>
         <p class="guide-text">
-            Because your scouting database is stored securely in the cloud, your Local Client needs a way to authenticate and talk to your Web App.
+            Because your scouting database is stored securely in the cloud, your LocalOtter needs a way to authenticate and talk to your Web App.
         </p>
         <p class="guide-text">
             You can find your unique <strong>Sync Key</strong> on the Settings page of this Web App. By running the <code>sc2otter --sync-key XYZ</code> command in your terminal, you permanently link your computer to your cloud database.
@@ -32,7 +32,7 @@
             While you have the <code>sc2otter</code> daemon running in the background, it continuously monitors your active StarCraft 2 game using the local SC2 Client API.
         </p>
         <p class="guide-text">
-            The millisecond a new match starts on the loading screen, the Local Client detects the names and races of your opponents. It instantly searches your cloud database and updates the <strong>Live Game</strong> tab on this Web App, showing you their historical stats, their preferred strategies, and any custom notes you've written about them before the game even begins!
+            The millisecond a new match starts on the loading screen, the LocalOtter detects the names and races of your opponents. It instantly searches your cloud database and updates the <strong>Live Game</strong> tab on this Web App, showing you their historical stats, their preferred strategies, and any custom notes you've written about them before the game even begins!
         </p>
     </div>
 
@@ -42,7 +42,7 @@
             <strong>The replay analyzer runs automatically after every single game!</strong>
         </p>
         <p class="guide-text">
-            When a match finishes, StarCraft 2 automatically saves a <code>.SC2Replay</code> file to your hard drive. The Local Client detects that the game ended and immediately kicks off the Python-based Replay Analyzer.
+            When a match finishes, StarCraft 2 automatically saves a <code>.SC2Replay</code> file to your hard drive. The LocalOtter detects that the game ended and immediately kicks off the Python-based Replay Analyzer.
         </p>
         <p class="guide-text">
             Instead of uploading massive replay files to the internet, all the heavy lifting is done right on your computer. The analyzer parses the replay to extract build orders, units made, and critical metrics (like time supply-blocked or average unspent minerals). It then applies intelligent strategy tags (like "Cheese" or "Proxy") based on our Tag Rules.
@@ -55,7 +55,7 @@
     <div class="guide-section">
         <h3 class="guide-title">4. Bulk Replay Importer</h3>
         <p class="guide-text">
-            If you want to backfill your database with games you played before installing Sc2Otter, you can trigger a <strong>Bulk Scan</strong> from the Settings page. This sends a signal to your Local Client to scan your entire StarCraft 2 Replays folder. It processes every historical replay it finds, extracting the stats and assigning tags, building up a massive scouting database for you effortlessly!
+            If you want to backfill your database with games you played before installing Sc2Otter, you can trigger a <strong>Bulk Scan</strong> from the Settings page. This sends a signal to your LocalOtter to scan your entire StarCraft 2 Replays folder. It processes every historical replay it finds, extracting the stats and assigning tags, building up a massive scouting database for you effortlessly!
         </p>
         <p class="guide-text" style="color: var(--accent-warning); font-size: 13.5px;">
             <em>Note: To prevent clutter from immediate leaves or crashes, replays shorter than 3 minutes are automatically skipped and will not be parsed during Live Games or Bulk Scans.</em>

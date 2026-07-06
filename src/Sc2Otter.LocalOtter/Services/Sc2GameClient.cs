@@ -1,4 +1,4 @@
-namespace Sc2Otter.LocalClient.Services;
+namespace Sc2Otter.LocalOtter.Services;
 
 using System.Text.Json;
 using Sc2Otter.Core.Interfaces;

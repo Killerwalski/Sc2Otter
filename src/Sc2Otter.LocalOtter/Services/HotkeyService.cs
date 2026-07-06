@@ -1,8 +1,8 @@
-namespace Sc2Otter.LocalClient.Services;
+namespace Sc2Otter.LocalOtter.Services;
 
 using System.Runtime.InteropServices;
 using Microsoft.AspNetCore.SignalR;
-using Sc2Otter.LocalClient.Services;
+using Sc2Otter.LocalOtter.Services;
 
 public class HotkeyService(ScoutHubClient hubClient, SettingsService settings, ILogger<HotkeyService> logger) : BackgroundService
 {

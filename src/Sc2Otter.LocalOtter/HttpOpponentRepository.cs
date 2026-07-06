@@ -1,4 +1,4 @@
-namespace Sc2Otter.LocalClient.Services;
+namespace Sc2Otter.LocalOtter.Services;
 
 using Sc2Otter.Core.Interfaces;
 using Sc2Otter.Core.Models;

@@ -1,4 +1,4 @@
-namespace Sc2Otter.LocalClient.Services;
+namespace Sc2Otter.LocalOtter.Services;
 
 using System.Diagnostics;
 using System.Text.Json;
@@ -22,7 +22,7 @@ public class ReplayAnalysisService
         _logger = logger;
 
         _pythonScriptPath = Path.Combine(Path.GetTempPath(), "replay_analyzer.py");
-        using var stream = typeof(ReplayAnalysisService).Assembly.GetManifestResourceStream("Sc2Otter.LocalClient.PythonSidecar.replay_analyzer.py");
+        using var stream = typeof(ReplayAnalysisService).Assembly.GetManifestResourceStream("Sc2Otter.LocalOtter.PythonSidecar.replay_analyzer.py");
         if (stream != null)
         {
             using var fileStream = File.Create(_pythonScriptPath);

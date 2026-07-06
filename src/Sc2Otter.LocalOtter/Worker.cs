@@ -1,4 +1,4 @@
-namespace Sc2Otter.LocalClient;
+namespace Sc2Otter.LocalOtter;
 
 public class Worker(ILogger<Worker> logger) : BackgroundService
 {

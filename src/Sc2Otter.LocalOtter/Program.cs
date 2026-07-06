@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Sc2Otter.Core.Interfaces;
-using Sc2Otter.LocalClient.Services;
+using Sc2Otter.LocalOtter.Services;
 
 var settingsService = new SettingsService();
 

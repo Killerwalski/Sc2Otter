@@ -26,6 +26,7 @@
     <Version>1.1.5</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <IsPackable>true</IsPackable>
+    <AssemblyName>sc2otter</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
