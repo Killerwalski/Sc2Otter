@@ -1,5 +1,12 @@
 @using Sc2Otter.Server.Services
 @using Sc2Otter.Core.Models
+@using Microsoft.AspNetCore.SignalR.Client
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@inject Sc2Otter.Data.ScoutDbContext DbContext
+@implements IAsyncDisposable
+@rendermode InteractiveServer
 
 <div class="connection-status">
     <span class="connection-dot @(IsConnected ? "connected" : "disconnected")"></span>
@@ -9,10 +16,57 @@
 @code {
     private bool IsConnected { get; set; }
     private string StatusText => IsConnected ? "Local Client Connected" : "Local Client Offline";
+    private HubConnection? _hubConnection;
+    private System.Timers.Timer? _timer;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        IsConnected = true; // Temporary until we implement local client heartbeats
+        var url = Navigation.ToAbsoluteUri("/scouthub").ToString();
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userIdStr = authState.User.FindFirst("Sc2OtterUserId")?.Value;
+        if (int.TryParse(userIdStr, out var userId))
+        {
+            var user = await DbContext.Users.FindAsync(userId);
+            if (user != null && !string.IsNullOrEmpty(user.SyncKey))
+            {
+                url += $"?syncKey={user.SyncKey}";
+            }
+        }
+
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(url)
+            .WithAutomaticReconnect()
+            .Build();
+
+        _hubConnection.On("LocalClientHeartbeat", () =>
+        {
+            IsConnected = true;
+            InvokeAsync(StateHasChanged);
+            
+            _timer?.Stop();
+            _timer?.Start();
+        });
+
+        _timer = new System.Timers.Timer(10000);
+        _timer.Elapsed += (s, e) =>
+        {
+            if (IsConnected)
+            {
+                IsConnected = false;
+                InvokeAsync(StateHasChanged);
+            }
+        };
+
+        await _hubConnection.StartAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _timer?.Dispose();
+        if (_hubConnection is not null)
+        {
+            await _hubConnection.DisposeAsync();
+        }
     }
 }
 

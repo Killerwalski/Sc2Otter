@@ -162,6 +162,12 @@ public class ScoutHub(IServiceScopeFactory scopeFactory, ILogger<ScoutHub> logge
         if (userId.HasValue) await Clients.Group($"User_{userId.Value}").SendAsync("StartBulkImport");
     }
 
+    public async Task SendHeartbeat()
+    {
+        var userId = await GetUserIdAsync();
+        if (userId.HasValue) await Clients.OthersInGroup($"User_{userId.Value}").SendAsync("LocalClientHeartbeat");
+    }
+
     public override async Task OnConnectedAsync()
     {
         var userId = await GetUserIdAsync();

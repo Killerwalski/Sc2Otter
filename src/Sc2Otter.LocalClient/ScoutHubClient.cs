@@ -44,6 +44,18 @@ public class ScoutHubClient
         {
             await _connection.StartAsync(ct);
             _logger.LogInformation("Connected to ScoutHub");
+
+            _ = Task.Run(async () => 
+            {
+                while (!ct.IsCancellationRequested)
+                {
+                    if (_connection.State == HubConnectionState.Connected)
+                    {
+                        await _connection.InvokeAsync("SendHeartbeat", ct);
+                    }
+                    await Task.Delay(5000, ct);
+                }
+            }, ct);
         }
         catch (Exception ex)
         {
