@@ -15,6 +15,7 @@ public class ScoutHubClient
 
     public event Action? OnBulkImportRequested;
     public event Action? OnRefreshRequested;
+    public event Action? OnConnected;
 
     public ScoutHubClient(ILogger<ScoutHubClient> logger, SettingsService settings)
     {
@@ -50,6 +51,14 @@ public class ScoutHubClient
         {
             await _connection.StartAsync(ct);
             _logger.LogInformation("Connected to ScoutHub");
+            OnConnected?.Invoke();
+            
+            _connection.Reconnected += (connectionId) =>
+            {
+                _logger.LogInformation("Reconnected to ScoutHub");
+                OnConnected?.Invoke();
+                return Task.CompletedTask;
+            };
 
             _ = Task.Run(async () => 
             {

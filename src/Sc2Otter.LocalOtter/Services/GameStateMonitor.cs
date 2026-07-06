@@ -41,6 +41,7 @@ public class GameStateMonitor : BackgroundService
         this.logger = logger;
 
         this.hubClient.OnRefreshRequested += () => _forceStatePush = true;
+        this.hubClient.OnConnected += () => _forceStatePush = true;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
