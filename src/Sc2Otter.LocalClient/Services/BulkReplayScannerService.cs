@@ -103,6 +103,11 @@ public class BulkReplayScannerService : BackgroundService
                 await Task.Delay(500, ct);
             }
 
+            if (files.Count == 0)
+            {
+                await _hubClient.PushBulkScanProgressAsync(0, 0, ct);
+            }
+
             _logger.LogInformation("Bulk replay import completed!");
             
             _settings.Current.BulkScanCutoffDate = DateTime.UtcNow;

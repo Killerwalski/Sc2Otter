@@ -171,7 +171,21 @@ public class ScoutHub(IServiceScopeFactory scopeFactory, ILogger<ScoutHub> logge
     public async Task PushBulkScanProgress(int current, int total)
     {
         var userId = await GetUserIdAsync();
-        if (userId.HasValue) await Clients.OthersInGroup($"User_{userId.Value}").SendAsync("BulkScanProgress", current, total);
+        if (userId.HasValue) 
+        {
+            if (current == total)
+            {
+                using var scope = scopeFactory.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<Sc2Otter.Data.ScoutDbContext>();
+                var user = await db.Users.FindAsync(userId.Value);
+                if (user != null)
+                {
+                    user.LastBulkScanAt = DateTime.UtcNow;
+                    await db.SaveChangesAsync();
+                }
+            }
+            await Clients.OthersInGroup($"User_{userId.Value}").SendAsync("BulkScanProgress", current, total);
+        }
     }
 
     public async Task RequestGameStateRefresh()

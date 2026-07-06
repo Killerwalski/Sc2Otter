@@ -15,6 +15,8 @@ public class AppUser
     public string? AvatarUrl { get; set; }
 
     public string SyncKey { get; set; } = string.Empty;
+    
+    public DateTime? LastBulkScanAt { get; set; }
 
     // Navigation property for all opponents recorded by this user
     public ICollection<Opponent> Opponents { get; set; } = new List<Opponent>();

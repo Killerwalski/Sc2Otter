@@ -56,6 +56,12 @@
             <div>
                 <div class="setting-label">Bulk Scan Replays</div>
                 <div class="setting-description">If you have old replays that you want to upload to your new cloud database, you can trigger a bulk import. This will instruct your running Local Client to scan all old .SC2Replay files and process them sequentially in the background.</div>
+                @if (LastScanTime.HasValue)
+                {
+                    <div class="setting-description" style="color: var(--accent-success); margin-top: 8px;">
+                        Last bulk scan completed at: @LastScanTime.Value.ToLocalTime().ToString("MMM dd, yyyy h:mm tt")
+                    </div>
+                }
             </div>
             <div style="display: flex; align-items: center; gap: 12px;">
                 <button class="btn btn-warning" style="padding: 6px 12px;" @onclick="TriggerBulkImport" disabled="@_isImporting">
@@ -128,6 +134,7 @@
     private int _importCurrent = 0;
     private int _importTotal = 0;
     private HubConnection? _hubConnection;
+    private DateTime? LastScanTime = null;
 
     private string WipeMessage = "";
 
@@ -143,6 +150,7 @@
             if (user != null)
             {
                 SyncKey = user.SyncKey;
+                LastScanTime = user.LastBulkScanAt;
                 
                 var url = Navigation.ToAbsoluteUri($"/scouthub?syncKey={SyncKey}").ToString();
                 _hubConnection = new HubConnectionBuilder()
@@ -158,6 +166,7 @@
                     if (current == total)
                     {
                         _isImporting = false;
+                        LastScanTime = DateTime.UtcNow;
                     }
                     InvokeAsync(StateHasChanged);
                 });
