@@ -17,8 +17,8 @@
 @implements IAsyncDisposable
 
 <div class="page-header">
-    <h1>Settings</h1>
-    <p>Configure Sc2Otter to your liking</p>
+    <h1>System Configuration</h1>
+    <p>Manage your Local Client connection and Database</p>
 </div>
 
 <div class="card">
@@ -110,23 +110,16 @@
     </div>
     
     <div style="margin-top: 30px; display: flex; align-items: center; justify-content: flex-end; gap: 16px;">
-        @if (ShowSaved)
-        {
-            <div style="color: var(--accent-success); font-weight: 500;">Settings saved successfully!</div>
-        }
         @if (!string.IsNullOrEmpty(WipeMessage))
         {
             <div style="color: @(WipeMessage.Contains("Failed") ? "var(--accent-danger)" : "var(--accent-success)"); font-weight: 500;">
                 @WipeMessage
             </div>
         }
-        <button class="btn btn-primary" style="padding: 10px 24px;" @onclick="SaveSettings">Save All Settings</button>
     </div>
 </div>
 
 @code {
-    private UserSettings TempSettings { get; set; } = new();
-    private bool ShowSaved = false;
     private bool IsWiping = false;
     private string SyncKey = "";
     private bool ShowSyncKey = false;
@@ -140,7 +133,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        TempSettings = SettingsService.Current.Clone();
         
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         var userIdStr = authState.User.FindFirst("Sc2OtterUserId")?.Value;
@@ -210,15 +202,7 @@
         }
     }
 
-    private async Task SaveSettings()
-    {
-        SettingsService.Update(TempSettings);
-        ShowSaved = true;
-        await InvokeAsync(StateHasChanged);
-        await Task.Delay(2500);
-        ShowSaved = false;
-        await InvokeAsync(StateHasChanged);
-    }
+
 
     private async Task WipeDatabase()
     {
@@ -233,9 +217,6 @@
             using var scope = ScopeFactory.CreateScope();
             var repo = scope.ServiceProvider.GetRequiredService<IOpponentRepository>();
             await repo.WipeDatabaseAsync();
-            
-            TempSettings.LastScanResult = "";
-            SettingsService.Update(TempSettings);
             
             Logger.LogInformation("Database wiped successfully from UI.");
             WipeMessage = "Database wiped successfully.";

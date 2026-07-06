@@ -8,46 +8,24 @@ All this data is pushed securely to your Sc2Otter Web App so you can review it f
 
 ## Installation (Local Client)
 
-The Local Client is a `.NET` Global Tool that runs in the background while you play.
-
-### Prerequisites
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- Python 3.9+ (with `sc2reader` installed: `pip install sc2reader`)
-- StarCraft 2 installed on your PC
+The Local Client is a lightweight standalone application that runs silently in the background while you play.
 
 ### Setup
 
-1. **Clone the repository** (or download as a ZIP):
-   ```bash
-   git clone https://github.com/Killerwalski/Sc2Otter.git
-   cd Sc2Otter/src/Sc2Otter.LocalClient
-   ```
-
-2. **Build and Pack the Tool**:
-   ```bash
-   dotnet pack -c Release
-   ```
-
-3. **Install as a Global Tool**:
-   ```bash
-   dotnet tool install -g --add-source ./nupkg Sc2Otter.LocalClient
-   ```
+1. **Download the latest release**: Go to the [Releases](https://github.com/Killerwalski/Sc2Otter/releases) page and download `sc2otter.exe`.
+2. Place the `.exe` file anywhere on your computer (e.g., inside a new `Sc2Otter` folder).
+3. Open a terminal (PowerShell or Command Prompt) in that folder.
 
 ### Connecting to Your Web App
 
-Once installed, you can start Sc2Otter from anywhere in your terminal by running:
+Start Sc2Otter and link it to your Web App by running:
 ```bash
-sc2otter --sync-key YOUR_SYNC_KEY_HERE
+.\sc2otter.exe --sync-key YOUR_SYNC_KEY_HERE
 ```
-*(You can find your Sync Key on the **Settings** page of your Sc2Otter Web App).*
+*(You can find your Sync Key on the **Configuration** page of your Sc2Otter Web App).*
 
 Once connected, Sc2Otter will run quietly in the background. It will automatically detect when a match starts and ends, seamlessly syncing data to your cloud database!
 
 ### Updating
 
-When a new version is released, simply pull the latest code, repack it, and run the update command:
-```bash
-git pull
-dotnet pack -c Release
-dotnet tool update -g --add-source ./nupkg Sc2Otter.LocalClient
-```
+When a new version is released, simply replace your old `sc2otter.exe` file with the newly downloaded one.
