@@ -249,7 +249,7 @@ def analyze_replay(replay_path, my_name=None):
         elif total_players == 8:
             game_mode = "4v4"
         else:
-            game_mode = f"{total_players}p"
+            game_mode = None
             
         print(json.dumps({
             "success": True, 

@@ -1,6 +1,8 @@
 @page "/tags"
 @rendermode InteractiveServer
 
+@using Sc2Otter.Core.Models
+
 <div class="page-header">
     <h2>Tag Dictionary & Rules</h2>
     <p style="color: var(--text-muted);">This dictionary defines the exact conditions under which the Local Client's automated replay analyzer will assign tags to players.</p>
@@ -8,59 +10,17 @@
 
 <div class="card tag-rules-card" style="margin-top: 24px; padding: 32px;">
     
-    <h3 style="color: var(--accent-primary); margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Macro & Economy Tags</h3>
-    <div class="rules-grid">
-        @RuleRow("Hatchery First", "Zerg only. Built a Hatchery before a Spawning Pool.")
-        @RuleRow("Nexus First", "Protoss only. Built a Nexus before a Gateway or Forge.")
-        @RuleRow("CC First", "Terran only. Built a Command Center before a Barracks.")
-        @RuleRow("One baser", "Player did not start an expansion (Hatchery/Nexus/CC) within the first 4 minutes of the game.")
-    </div>
-
-    <h3 style="color: var(--accent-secondary); margin-top: 40px; margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Cheese & Aggression Tags</h3>
-    <div class="rules-grid">
-        @RuleRow("Cheese", "Automatically applied if any of the following are detected: Fast Pool, Cannon Rush, or any Proxy building.")
-        @RuleRow("Fast Pool", "Zerg only. Spawning pool was started before 1:10 (typically indicates a 14 pool or earlier).")
-        @RuleRow("Cannon Rusher", "Protoss only. Built a Photon Cannon far away from their starting base (distance > 55) before the 6 minute mark.")
-        @RuleRow("Proxy [Building]", "Built a production structure (Barracks, Gateway, Factory, Starport, Robotics Facility, Stargate, Forge) far away from their starting base (distance > 55) before the 6 minute mark.")
-    </div>
-
-    <h3 style="color: #64b5f6; margin-top: 40px; margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Unit Composition & Tech Tags</h3>
-    <div class="rules-grid">
-        @RuleRow("Random", "Player queued as Random race.")
-        @RuleRow("Bio player", "Terran only. Built more than 15 bio units (Marine/Marauder), and bio units outnumber factory units 2-to-1.")
-        @RuleRow("Mech", "Terran only. Built more than 10 factory units (Hellion, Cyclone, Tank, Thor, Mine), and factory units outnumber bio units by at least 5.")
-        @RuleRow("Mutas", "Zerg only. Built more than 8 Mutalisks.")
-        @RuleRow("Multi reaper", "Terran only. Built more than 1 Reaper in the first 5 minutes.")
-        @RuleRow("Battlecruiser", "Terran only. Built more than 1 Battlecruiser.")
-        @RuleRow("Fast BCs", "Terran only. First Battlecruiser was produced before the 7 minute mark.")
-        @RuleRow("Fast DTs", "Protoss only. Dark Shrine was started before the 7 minute mark.")
-        @RuleRow("Warp prism", "Protoss only. Built at least one Warp Prism.")
-        @RuleRow("Nydus Network", "Zerg only. Built a Nydus Network.")
-    </div>
-
-    <h3 style="color: #ba68c8; margin-top: 40px; margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Mass Unit Tags</h3>
-    <div class="rules-grid">
-        @RuleRow("Mass Queen", "Zerg only. Built 8 or more Queens.")
-        @RuleRow("Mass Ravager", "Zerg only. Built 12 or more Ravagers.")
-        @RuleRow("Mass Lurker", "Zerg only. Built 6 or more Lurkers.")
-        @RuleRow("Mass Swarm Host", "Zerg only. Built 8 or more Swarm Hosts.")
-        @RuleRow("Mass Infestor", "Zerg only. Built 6 or more Infestors.")
-        @RuleRow("Mass Ultralisk", "Zerg only. Built 5 or more Ultralisks.")
-        
-        @RuleRow("Mass Adept", "Protoss only. Built 8 or more Adepts.")
-        @RuleRow("Mass Void Ray", "Protoss only. Built 6 or more Void Rays.")
-        @RuleRow("Mass Oracle", "Protoss only. Built 5 or more Oracles.")
-        @RuleRow("Mass Carrier", "Protoss only. Built 5 or more Carriers.")
-        @RuleRow("Mass Tempest", "Protoss only. Built 6 or more Tempests.")
-        @RuleRow("Mass Archon", "Protoss only. Built 10 or more Archons.")
-
-        @RuleRow("Mass Hellion", "Terran only. Built 12 or more Hellions (or Hellbats).")
-        @RuleRow("Mass Widow Mine", "Terran only. Built 8 or more Widow Mines.")
-        @RuleRow("Mass Cyclone", "Terran only. Built 8 or more Cyclones.")
-        @RuleRow("Mass Liberator", "Terran only. Built 5 or more Liberators.")
-        @RuleRow("Mass Banshee", "Terran only. Built 5 or more Banshees.")
-        @RuleRow("Mass Ghost", "Terran only. Built 8 or more Ghosts.")
-    </div>
+    @foreach (var categoryGroup in TagDictionary.AllTags.GroupBy(t => t.Category))
+    {
+        var color = GetCategoryColor(categoryGroup.Key);
+        <h3 style="color: @color; margin-top: @(categoryGroup.Key == "Macro & Economy" ? "0" : "40px"); margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">@categoryGroup.Key</h3>
+        <div class="rules-grid">
+            @foreach (var tag in categoryGroup)
+            {
+                @RuleRow(tag.Name, tag.Description)
+            }
+        </div>
+    }
 </div>
 
 <style>
@@ -111,4 +71,16 @@
             </div>
         </div>
     };
+
+    private string GetCategoryColor(string category)
+    {
+        return category switch
+        {
+            "Macro & Economy" => "var(--accent-primary)",
+            "Cheese & Aggression" => "var(--accent-secondary)",
+            "Unit Composition & Tech" => "#64b5f6",
+            "Mass Unit" => "#ba68c8",
+            _ => "var(--text-primary)"
+        };
+    }
 }

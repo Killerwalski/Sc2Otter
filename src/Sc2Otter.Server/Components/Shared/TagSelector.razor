@@ -1,4 +1,5 @@
 @inject IOpponentRepository Repo
+@using Sc2Otter.Core.Models
 
 <div class="tag-selector">
     @foreach (var tag in AllTags.Where(t => IsTagApplicable(t.Name)))
@@ -19,12 +20,7 @@
     [Parameter] public EventCallback<string> OnTagAdded { get; set; }
     [Parameter] public EventCallback<string> OnTagRemoved { get; set; }
 
-    private List<OpponentTag> AllTags { get; set; } = [];
     private HashSet<string> PlayedRaces { get; set; } = new(StringComparer.OrdinalIgnoreCase);
-
-    private readonly string[] ZergTags = ["Hatchery First", "Fast Pool", "Mutas", "Nydus Network", "Mass Queen", "Mass Ravager", "Mass Lurker", "Mass Swarm Host", "Mass Infestor", "Mass Ultralisk"];
-    private readonly string[] ProtossTags = ["Nexus First", "Cannon Rusher", "Fast DTs", "Warp prism", "Mass Adept", "Mass Void Ray", "Mass Oracle", "Mass Carrier", "Mass Tempest", "Mass Archon"];
-    private readonly string[] TerranTags = ["CC First", "Bio player", "Mech", "Multi reaper", "Battlecruiser", "Fast BCs", "Mass Hellion", "Mass Widow Mine", "Mass Cyclone", "Mass Liberator", "Mass Banshee", "Mass Ghost"];
 
     protected override async Task OnInitializedAsync()
     {
@@ -52,9 +48,11 @@
         if (SelectedTags.Contains(tagName)) return true; // Always show if already selected
         if (PlayedRaces.Count == 0 || PlayedRaces.Contains("Unknown")) return true;
 
-        if (ZergTags.Contains(tagName) && !PlayedRaces.Contains("Zerg")) return false;
-        if (ProtossTags.Contains(tagName) && !PlayedRaces.Contains("Protoss")) return false;
-        if (TerranTags.Contains(tagName) && !PlayedRaces.Contains("Terran")) return false;
+        var def = TagDictionary.Get(tagName);
+        if (def != null && def.Race != null)
+        {
+            if (!PlayedRaces.Contains(def.Race)) return false;
+        }
         
         // Proxy tags are generally Terran/Protoss
         if (tagName.StartsWith("Proxy") && !PlayedRaces.Contains("Terran") && !PlayedRaces.Contains("Protoss")) return false;
@@ -73,45 +71,6 @@
 
     private string GetTagDescription(string tagName)
     {
-        return TagDescriptions.GetValueOrDefault(tagName, "");
+        return TagDictionary.Get(tagName)?.Description ?? "";
     }
-
-    private static readonly Dictionary<string, string> TagDescriptions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        {"Hatchery First", "Zerg only. Built a Hatchery before a Spawning Pool."},
-        {"Nexus First", "Protoss only. Built a Nexus before a Gateway or Forge."},
-        {"CC First", "Terran only. Built a Command Center before a Barracks."},
-        {"One baser", "Player did not start an expansion (Hatchery/Nexus/CC) within the first 4 minutes of the game."},
-        {"Cheese", "Automatically applied if any of the following are detected: Fast Pool, Cannon Rush, or any Proxy building."},
-        {"Fast Pool", "Zerg only. Spawning pool was started before 1:10 (typically indicates a 14 pool or earlier)."},
-        {"Cannon Rusher", "Protoss only. Built a Photon Cannon far away from their starting base (distance > 55) before the 6 minute mark."},
-        {"Random", "Player queued as Random race."},
-        {"Bio player", "Terran only. Built more than 15 bio units (Marine/Marauder), and bio units outnumber factory units 2-to-1."},
-        {"Mech", "Terran only. Built more than 10 factory units (Hellion, Cyclone, Tank, Thor, Mine), and factory units outnumber bio units by at least 5."},
-        {"Mutas", "Zerg only. Built more than 8 Mutalisks."},
-        {"Multi reaper", "Terran only. Built more than 1 Reaper in the first 5 minutes."},
-        {"Battlecruiser", "Terran only. Built more than 1 Battlecruiser."},
-        {"Fast BCs", "Terran only. First Battlecruiser was produced before the 7 minute mark."},
-        {"Fast DTs", "Protoss only. Dark Shrine was started before the 7 minute mark."},
-        {"Warp prism", "Protoss only. Built at least one Warp Prism."},
-        {"Nydus Network", "Zerg only. Built a Nydus Network."},
-        {"Mass Queen", "Zerg only. Built 8 or more Queens."},
-        {"Mass Ravager", "Zerg only. Built 12 or more Ravagers."},
-        {"Mass Lurker", "Zerg only. Built 6 or more Lurkers."},
-        {"Mass Swarm Host", "Zerg only. Built 8 or more Swarm Hosts."},
-        {"Mass Infestor", "Zerg only. Built 6 or more Infestors."},
-        {"Mass Ultralisk", "Zerg only. Built 5 or more Ultralisks."},
-        {"Mass Adept", "Protoss only. Built 8 or more Adepts."},
-        {"Mass Void Ray", "Protoss only. Built 6 or more Void Rays."},
-        {"Mass Oracle", "Protoss only. Built 5 or more Oracles."},
-        {"Mass Carrier", "Protoss only. Built 5 or more Carriers."},
-        {"Mass Tempest", "Protoss only. Built 6 or more Tempests."},
-        {"Mass Archon", "Protoss only. Built 10 or more Archons."},
-        {"Mass Hellion", "Terran only. Built 12 or more Hellions (or Hellbats)."},
-        {"Mass Widow Mine", "Terran only. Built 8 or more Widow Mines."},
-        {"Mass Cyclone", "Terran only. Built 8 or more Cyclones."},
-        {"Mass Liberator", "Terran only. Built 5 or more Liberators."},
-        {"Mass Banshee", "Terran only. Built 5 or more Banshees."},
-        {"Mass Ghost", "Terran only. Built 8 or more Ghosts."}
-    };
 }
