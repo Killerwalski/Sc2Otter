@@ -10,6 +10,9 @@ All this data is pushed securely to your Sc2Otter Web App so you can review it f
 
 The Local Client is a lightweight standalone application that runs silently in the background while you play.
 
+### Requirements
+- **Python**: You must have Python installed on your system (added to your system PATH) for the background replay analyzer to work. The client will automatically install the necessary `sc2reader` Python package for you when it starts up!
+
 ### Setup
 
 1. **Download the latest release**: Go to the [Releases](https://github.com/Killerwalski/Sc2Otter/releases) page and download `sc2otter.exe`.

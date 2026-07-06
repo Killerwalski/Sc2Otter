@@ -28,6 +28,24 @@ public class ReplayAnalysisService
             using var fileStream = File.Create(_pythonScriptPath);
             stream.CopyTo(fileStream);
         }
+
+        try
+        {
+            var pipProcess = Process.Start(new ProcessStartInfo
+            {
+                FileName = "python",
+                ArgumentList = { "-m", "pip", "install", "sc2reader" },
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+            pipProcess?.WaitForExit();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to automatically install sc2reader via pip. Please ensure Python is installed on your system.");
+        }
     }
 
     public async Task<bool> AnalyzeReplayAsync(string replayPath, CancellationToken ct = default)
