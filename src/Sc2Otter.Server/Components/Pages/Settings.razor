@@ -56,6 +56,9 @@
             <div>
                 <div class="setting-label">Bulk Scan Replays</div>
                 <div class="setting-description">If you have old replays that you want to upload to your new cloud database, you can trigger a bulk import. This will instruct your running Local Client to scan all old .SC2Replay files and process them sequentially in the background.</div>
+                <div class="setting-description" style="color: var(--accent-warning); font-size: 13px; margin-top: 4px;">
+                    <em>Note: To prevent clutter, replays shorter than 3 minutes are automatically skipped and will not be parsed.</em>
+                </div>
                 @if (LastScanTime.HasValue)
                 {
                     <div class="setting-description" style="color: var(--accent-success); margin-top: 8px;">

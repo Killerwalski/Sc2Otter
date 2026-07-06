@@ -1,0 +1,34 @@
+@inject IJSRuntime JSRuntime
+
+<span @ref="timeSpan">@UtcTime.ToString("MMM d, yyyy h:mm tt") (UTC)</span>
+
+@code {
+    [Parameter]
+    public DateTime UtcTime { get; set; }
+    
+    [Parameter]
+    public bool IncludeYear { get; set; } = false;
+
+    private ElementReference timeSpan;
+    private bool isFormatted;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !isFormatted)
+        {
+            try
+            {
+                var isoString = UtcTime.Kind == DateTimeKind.Utc 
+                    ? UtcTime.ToString("O") 
+                    : DateTime.SpecifyKind(UtcTime, DateTimeKind.Utc).ToString("O");
+                    
+                await JSRuntime.InvokeVoidAsync("formatLocalTime", timeSpan, isoString, IncludeYear);
+                isFormatted = true;
+            }
+            catch
+            {
+                // Ignore JS errors if rendering fails
+            }
+        }
+    }
+}

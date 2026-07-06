@@ -25,7 +25,7 @@ else
             <div class="detail-meta">
                 <span>@(Match.GameMode ?? "Unknown Mode")</span>
                 <span>@(Match.MapName ?? "Unknown Map")</span>
-                <span>@Match.PlayedAt.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</span>
+                <span><LocalTime UtcTime="@Match.PlayedAt" IncludeYear="true" /></span>
             </div>
         </div>
         <div class="opponent-stats" style="margin-left: auto;">

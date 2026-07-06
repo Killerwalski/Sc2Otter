@@ -11,6 +11,14 @@
 </head>
 <body>
     <Routes />
+    <script>
+        window.formatLocalTime = (element, utcString, includeYear) => {
+            const date = new Date(utcString);
+            const options = { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' };
+            if (includeYear) options.year = 'numeric';
+            element.innerText = date.toLocaleString([], options);
+        };
+    </script>
     <script src="/_framework/blazor.web.js"></script>
     <script src="/js/notifications.js"></script>
 </body>

@@ -25,8 +25,8 @@ else
             <div class="detail-name">@Opponent.Name</div>
             <div class="detail-meta">
                 <span>@(Opponent.Race ?? "Unknown Race")</span>
-                <span>First seen: @Opponent.FirstSeen.ToLocalTime().ToString("MMM d, yyyy")</span>
-                <span>Last seen: @Opponent.LastSeen.ToLocalTime().ToString("MMM d, yyyy")</span>
+                <span>First seen: <LocalTime UtcTime="@Opponent.FirstSeen" IncludeYear="true" /></span>
+                <span>Last seen: <LocalTime UtcTime="@Opponent.LastSeen" IncludeYear="true" /></span>
             </div>
         </div>
         <div class="opponent-stats" style="margin-left: auto;">
@@ -85,7 +85,7 @@ else
                             {
                                 <div class="note-content">@note.Content</div>
                                 <div class="note-meta">
-                                    <span>@note.CreatedAt.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</span>
+                                    <span><LocalTime UtcTime="@note.CreatedAt" IncludeYear="true" /></span>
                                     <span class="note-source">@(note.Source == "voice" ? "🎤 Voice" : "⌨️ Typed")</span>
                                     @if (note.UpdatedAt.HasValue)
                                     {

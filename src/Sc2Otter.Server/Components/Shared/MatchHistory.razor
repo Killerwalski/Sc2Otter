@@ -14,7 +14,7 @@
                 <span class="match-map">
                     @(match.MapName ?? "Unknown Map")@(string.IsNullOrEmpty(match.GameMode) ? "" : $" ({match.GameMode})")
                 </span>
-                <span class="match-date" style="margin-left: auto;">@match.PlayedAt.ToLocalTime().ToString("MMM d, h:mm tt")</span>
+                <span class="match-date" style="margin-left: auto;"><LocalTime UtcTime="@match.PlayedAt" /></span>
                 <span class="chevron" style="color: var(--text-muted);">&rsaquo;</span>
             </a>
         }
