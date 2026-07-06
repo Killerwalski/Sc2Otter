@@ -182,6 +182,9 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
 
     public async Task<MatchRecord> RecordMatchAsync(int opponentId, RecordMatchRequest req, CancellationToken ct = default)
     {
+        var opponent = await db.Opponents.FirstOrDefaultAsync(o => o.UserId == UserId && o.Id == opponentId, ct);
+        if (opponent is null) throw new KeyNotFoundException($"Opponent {opponentId} not found.");
+
         var match = new MatchRecord
         {
             OpponentId = opponentId,
@@ -207,16 +210,12 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
 
         db.MatchRecords.Add(match);
 
-        var opponent = await db.Opponents.FirstOrDefaultAsync(o => o.UserId == UserId && o.Id == opponentId, ct);
-        if (opponent is not null)
+        if (req.PlayedAt > opponent.LastSeen)
         {
-            if (req.PlayedAt > opponent.LastSeen)
-            {
-                opponent.LastSeen = req.PlayedAt ?? DateTime.UtcNow;
-                opponent.Race = req.OpponentRace ?? opponent.Race;
-            }
-            db.Opponents.Update(opponent);
+            opponent.LastSeen = req.PlayedAt ?? DateTime.UtcNow;
+            opponent.Race = req.OpponentRace ?? opponent.Race;
         }
+        db.Opponents.Update(opponent);
 
         await db.SaveChangesAsync(ct);
         return match;

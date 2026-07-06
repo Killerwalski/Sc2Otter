@@ -141,6 +141,10 @@ public static class ApiEndpoints
                 var match = await repo.RecordMatchAsync(id, req, ct);
                 return Results.Ok(match);
             }
+            catch (KeyNotFoundException ex)
+            {
+                return Results.NotFound(ex.Message);
+            }
             catch (Exception ex)
             {
                 return Results.Problem(detail: ex.ToString(), statusCode: 500);
