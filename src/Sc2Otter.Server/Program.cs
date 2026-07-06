@@ -10,6 +10,7 @@ using Sc2Otter.Server.Components;
 using Sc2Otter.Server.Hubs;
 using Sc2Otter.Server.Services;
 using System.Diagnostics;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -120,6 +121,15 @@ using (var scope = app.Services.CreateScope())
     await db.Database.EnsureCreatedAsync();
     
 }
+
+// --- Configure Forwarded Headers for Railway Proxy ---
+var forwardedHeadersOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+};
+forwardedHeadersOptions.KnownNetworks.Clear();
+forwardedHeadersOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeadersOptions);
 
 if (!app.Environment.IsDevelopment())
 {
