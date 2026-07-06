@@ -1,12 +1,71 @@
-using Sc2Otter.Core.Interfaces;
-using Sc2Otter.LocalClient.Services;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using System;
+using Spectre.Console;
+using Sc2Otter.Core.Interfaces;
+using Sc2Otter.LocalClient.Services;
+
+var settingsService = new SettingsService();
+
+if (args.Length == 0)
+{
+    while (true)
+    {
+        Console.Clear();
+        AnsiConsole.Write(new FigletText("Sc2Otter").Color(Color.Blue));
+        
+        var choice = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("What would you like to do?")
+                .PageSize(10)
+                .AddChoices(new[] {
+                    "Run Local Client",
+                    "Configure Settings",
+                    "Exit"
+                }));
+
+        if (choice == "Exit")
+        {
+            return;
+        }
+
+        if (choice == "Configure Settings")
+        {
+            var settings = settingsService.Current;
+            
+            settings.SyncKey = AnsiConsole.Ask<string>("Enter your [green]Server Sync Key[/]:", settings.SyncKey ?? "");
+            settings.MySc2Name = AnsiConsole.Ask<string>("Enter your [green]SC2 Username[/] (comma separated for multiple):", settings.MySc2Name ?? "");
+            settings.ReplayDirectory = AnsiConsole.Ask<string>("Enter your [green]Replay Directory[/]:", settings.ReplayDirectory ?? "");
+            
+            var dateStr = AnsiConsole.Ask<string>("Enter your [green]Bulk Scan Cutoff Date[/] (YYYY-MM-DD), or leave blank for none:", settings.BulkScanCutoffDate?.ToString("yyyy-MM-dd") ?? "");
+            if (DateTime.TryParse(dateStr, out var parsedDate))
+            {
+                settings.BulkScanCutoffDate = DateTime.SpecifyKind(parsedDate, DateTimeKind.Utc);
+            }
+            else if (string.IsNullOrWhiteSpace(dateStr))
+            {
+                settings.BulkScanCutoffDate = null;
+            }
+
+            settingsService.Update(settings);
+            
+            AnsiConsole.MarkupLine("[green]Settings saved![/] Press any key to continue...");
+            Console.ReadKey();
+            continue;
+        }
+
+        if (choice == "Run Local Client")
+        {
+            break;
+        }
+    }
+}
 
 var builder = Host.CreateApplicationBuilder(args);
 
-builder.Services.AddSingleton<SettingsService>();
+builder.Services.AddSingleton(settingsService);
 builder.Services.AddSingleton<ReplayAnalysisService>();
 
 builder.Services.AddHttpClient<ISc2GameClient, Sc2GameClient>(client =>
