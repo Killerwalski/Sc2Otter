@@ -200,13 +200,20 @@ public class GameStateMonitor : BackgroundService
             case Sc2GameState.PostGame:
                 if (gameInfo is not null)
                 {
-                    await HandlePostGame(gameInfo, ct);
-                    
-                    // Reload opponents to fetch updated stats (wins/losses)
-                    newlyDetectedOpponents = await DetectOpponentsAsync(gameInfo, ct, ignoreCache: true);
-                    if (newlyDetectedOpponents.Count > 0)
+                    if (newState != previousState)
                     {
-                        _currentOpponents = newlyDetectedOpponents;
+                        await HandlePostGame(gameInfo, ct);
+                        
+                        // Reload opponents to fetch updated stats (wins/losses)
+                        newlyDetectedOpponents = await DetectOpponentsAsync(gameInfo, ct, ignoreCache: true);
+                        if (newlyDetectedOpponents.Count > 0)
+                        {
+                            _currentOpponents = newlyDetectedOpponents;
+                        }
+                    }
+                    else
+                    {
+                        newlyDetectedOpponents = _currentOpponents;
                     }
                 }
                 break;
