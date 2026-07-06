@@ -13,7 +13,7 @@ public class UserSettings
     public DateTime? BulkScanCutoffDate { get; set; }
     
     // --- Cloud Sync ---
-    public string ServerUrl { get; set; } = "http://localhost:5177";
+    public string ServerUrl { get; set; } = "https://sc2otter-production.up.railway.app";
     public string SyncKey { get; set; } = string.Empty;
     public string LastScanResult { get; set; } = string.Empty;
     

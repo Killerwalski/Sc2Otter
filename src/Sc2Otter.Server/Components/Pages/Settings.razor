@@ -36,8 +36,11 @@
         <h3>Local Client Integration</h3>
         <div class="setting-row">
             <div>
-                <div class="setting-label">Sync Key</div>
-                <div class="setting-description">Use this key in your Local Client config to sync data to your account. Do not share this key!</div>
+                <div class="setting-label">Local Client Sync Key</div>
+                <div class="setting-description">
+                    Your Local Client needs this key to send match data to your account securely. 
+                    Open <code>%appdata%\Sc2Otter\user_settings.json</code> on your computer and paste this key into the <code>"SyncKey"</code> field.
+                </div>
             </div>
             <div>
                 @if (string.IsNullOrEmpty(SyncKey))
