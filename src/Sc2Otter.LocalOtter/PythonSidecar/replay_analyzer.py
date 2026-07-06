@@ -140,7 +140,8 @@ def analyze_replay(replay_path, my_name=None):
                     elif unit_name in ['Hellion', 'Hellbat', 'Cyclone', 'SiegeTank', 'Thor', 'WidowMine']:
                         factory_units += 1
                     elif unit_name == 'Reaper':
-                        reaper_count += 1
+                        if time_sec < 300: # Only count reapers in the first 5 minutes for the tag
+                            reaper_count += 1
                     elif unit_name == 'WarpPrism':
                         warp_prism_count += 1
                     elif unit_name == 'Battlecruiser':
