@@ -17,7 +17,16 @@
     <ProjectReference Include="..\Sc2Otter.Core\Sc2Otter.Core.csproj" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>sc2otter</ToolCommandName>
+    <PackageOutputPath>./nupkg</PackageOutputPath>
+    <PackageId>Sc2Otter.LocalClient</PackageId>
+    <Version>1.0.0</Version>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+  </PropertyGroup>
+
   <ItemGroup>
-    <None Update="PythonSidecar\**" CopyToOutputDirectory="PreserveNewest" />
+    <EmbeddedResource Include="PythonSidecar\replay_analyzer.py" />
   </ItemGroup>
 </Project>

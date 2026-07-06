@@ -5,23 +5,41 @@ using System.Text.Json;
 using Sc2Otter.Core.Interfaces;
 using Sc2Otter.Core.Models;
 
-public class ReplayAnalysisService(
-    IServiceScopeFactory scopeFactory,
-    SettingsService settingsService,
-    ILogger<ReplayAnalysisService> logger)
+public class ReplayAnalysisService
 {
-    private readonly string _pythonScriptPath = Path.Combine(AppContext.BaseDirectory, "PythonSidecar", "replay_analyzer.py");
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly SettingsService _settingsService;
+    private readonly ILogger<ReplayAnalysisService> _logger;
+    private readonly string _pythonScriptPath;
+
+    public ReplayAnalysisService(
+        IServiceScopeFactory scopeFactory,
+        SettingsService settingsService,
+        ILogger<ReplayAnalysisService> logger)
+    {
+        _scopeFactory = scopeFactory;
+        _settingsService = settingsService;
+        _logger = logger;
+
+        _pythonScriptPath = Path.Combine(Path.GetTempPath(), "replay_analyzer.py");
+        using var stream = typeof(ReplayAnalysisService).Assembly.GetManifestResourceStream("Sc2Otter.LocalClient.PythonSidecar.replay_analyzer.py");
+        if (stream != null)
+        {
+            using var fileStream = File.Create(_pythonScriptPath);
+            stream.CopyTo(fileStream);
+        }
+    }
 
     public async Task<bool> AnalyzeReplayAsync(string replayPath, CancellationToken ct = default)
     {
         if (!File.Exists(replayPath))
         {
-            logger.LogWarning("Replay file not found: {Path}", replayPath);
+            _logger.LogWarning("Replay file not found: {Path}", replayPath);
             return false;
         }
 
-        var myName = settingsService.Current.MySc2Name;
-        logger.LogInformation("Starting Python sidecar analysis for: {ReplayPath}", replayPath);
+        var myName = _settingsService.Current.MySc2Name;
+        _logger.LogInformation("Starting Python sidecar analysis for: {ReplayPath}", replayPath);
 
         try
         {
@@ -38,7 +56,7 @@ public class ReplayAnalysisService(
             using var process = Process.Start(processStartInfo);
             if (process == null)
             {
-                logger.LogError("Failed to start python process.");
+                _logger.LogError("Failed to start python process.");
                 return false;
             }
 
@@ -52,7 +70,7 @@ public class ReplayAnalysisService(
 
             if (process.ExitCode != 0)
             {
-                logger.LogError("Python script failed with exit code {Code}. Error: {Error}", process.ExitCode, error);
+                _logger.LogError("Python script failed with exit code {Code}. Error: {Error}", process.ExitCode, error);
                 return false;
             }
 
@@ -67,13 +85,13 @@ public class ReplayAnalysisService(
 
             if (result == null || !result.Success)
             {
-                logger.LogError("Python script returned failure: {Error}", result?.Error);
+                _logger.LogError("Python script returned failure: {Error}", result?.Error);
                 return false;
             }
 
             if (result.Data != null)
             {
-                using var scope = scopeFactory.CreateScope();
+                using var scope = _scopeFactory.CreateScope();
                 var repo = scope.ServiceProvider.GetRequiredService<IOpponentRepository>();
                 
                 var namesToIgnore = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -91,7 +109,7 @@ public class ReplayAnalysisService(
                 {
                     if (namesToIgnore.Contains(playerResult.Name))
                     {
-                        logger.LogInformation("Skipping analysis save for ignored player: {Name}", playerResult.Name);
+                        _logger.LogInformation("Skipping analysis save for ignored player: {Name}", playerResult.Name);
                         continue;
                     }
 
@@ -100,7 +118,7 @@ public class ReplayAnalysisService(
                     foreach (var tag in playerResult.Tags)
                     {
                         await repo.AddTagAsync(opponent.Id, tag, ct);
-                        logger.LogInformation("Added tag '{Tag}' to {Player}", tag, playerResult.Name);
+                        _logger.LogInformation("Added tag '{Tag}' to {Player}", tag, playerResult.Name);
                     }
                     
                     foreach (var note in playerResult.Notes)
@@ -108,7 +126,7 @@ public class ReplayAnalysisService(
                         // Add some context to the note
                         var fullNote = $"[Auto-Replay] {note}";
                         await repo.AddNoteAsync(opponent.Id, fullNote, "replay", ct);
-                        logger.LogInformation("Added note to {Player}: {Note}", playerResult.Name, fullNote);
+                        _logger.LogInformation("Added note to {Player}: {Note}", playerResult.Name, fullNote);
                     }
                     
                     if (!string.IsNullOrWhiteSpace(result.GameMode))
@@ -165,7 +183,7 @@ public class ReplayAnalysisService(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error executing replay analysis");
+            _logger.LogError(ex, "Error executing replay analysis");
         }
         return false;
     }

@@ -23,20 +23,10 @@
 
 <div class="card">
     <div class="settings-section">
-        <h3>General</h3>
-        <div class="setting-row">
-            <div>
-                <div class="setting-label">My SC2 Username</div>
-                <div class="setting-description">Comma separate multiple names (e.g. your alt accounts, or friends whose replays you scan) so they aren't tracked as opponents.</div>
-            </div>
-            <div>
-                <input type="text" class="form-control" style="width: 400px; background: var(--bg-tertiary); color: white; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 4px;" @bind="TempSettings.MySc2Name" placeholder="e.g. APECRAFT, FriendName" />
-            </div>
-        </div>
-    </div>
-
-    <div class="settings-section">
         <h3>Local Client Integration</h3>
+        <p class="setting-description" style="margin-bottom: 15px; color: var(--accent-warning);">
+            Note: Settings like your SC2 Username, Replay Directory, and Global Hotkeys are configured directly in your Local Client's <code>user_settings.json</code> file, not here.
+        </p>
         <div class="setting-row">
             <div>
                 <div class="setting-label">Local Client Sync Key</div>
@@ -85,79 +75,6 @@
                         <span>Trigger Bulk Replay Import</span>
                     }
                 </button>
-            </div>
-        </div>
-    </div>
-
-    <div class="settings-section">
-        <h3>Global Hotkey</h3>
-        <div class="setting-row">
-            <div>
-                <div class="setting-label">Add Note Hotkey</div>
-                <div class="setting-description">Opens the note editor for the current opponent</div>
-            </div>
-            <div style="display: flex; gap: 8px; align-items: center;">
-                <select class="form-control" style="background: var(--bg-tertiary); color: white; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 4px;" @bind="TempSettings.HotkeyModifiers">
-                    <option value="Ctrl">Ctrl</option>
-                    <option value="Shift">Shift</option>
-                    <option value="Alt">Alt</option>
-                    <option value="Ctrl+Shift">Ctrl + Shift</option>
-                    <option value="Ctrl+Alt">Ctrl + Alt</option>
-                    <option value="Alt+Shift">Alt + Shift</option>
-                    <option value="Ctrl+Alt+Shift">Ctrl + Alt + Shift</option>
-                </select>
-                <span>+</span>
-                <select class="form-control" style="background: var(--bg-tertiary); color: white; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 4px;" @bind="TempSettings.HotkeyChar">
-                    @for (char c = 'A'; c <= 'Z'; c++)
-                    {
-                        var key = c.ToString();
-                        <option value="@key">@key</option>
-                    }
-                </select>
-            </div>
-        </div>
-    </div>
-
-    <div class="settings-section">
-        <h3>SC2 Connection</h3>
-        <div class="setting-row">
-            <div>
-                <div class="setting-label">SC2 Client API</div>
-                <div class="setting-description">Sc2Otter connects to SC2 via the official game client API</div>
-            </div>
-            <div>
-                <span style="color: var(--text-muted); font-size: 13px; font-family: 'JetBrains Mono', monospace;">http://localhost:6119</span>
-            </div>
-        </div>
-        <div class="setting-row">
-            <div>
-                <div class="setting-label">Polling Interval (ms)</div>
-                <div class="setting-description">How often to check for game state changes</div>
-            </div>
-            <div>
-                <input type="number" class="form-control" style="width: 100px; background: var(--bg-tertiary); color: white; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 4px;" @bind="TempSettings.PollingIntervalMs" min="500" max="10000" step="100" />
-            </div>
-        </div>
-    </div>
-
-    <div class="settings-section">
-        <h3>Replay Analysis</h3>
-        <div class="setting-row">
-            <div>
-                <div class="setting-label">Replay Directory</div>
-                <div class="setting-description">Folder containing the .SC2Replay files to scan</div>
-            </div>
-            <div>
-                <input type="text" class="form-control" style="width: 400px; background: var(--bg-tertiary); color: white; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 4px;" @bind="TempSettings.ReplayDirectory" placeholder="C:\Path\To\Replays" />
-            </div>
-        </div>
-        <div class="setting-row" style="margin-top: 15px;">
-            <div>
-                <div class="setting-label">Bulk Scan Cutoff Date</div>
-                <div class="setting-description">Recommended to use the last major SC2 patch date</div>
-            </div>
-            <div>
-                <input type="date" class="form-control" style="width: 200px; background: var(--bg-tertiary); color: white; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 4px;" @bind="TempSettings.BulkScanCutoffDate" />
             </div>
         </div>
     </div>
