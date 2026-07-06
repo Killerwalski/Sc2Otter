@@ -11,7 +11,7 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
     {
         return await db.Opponents
             .Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag)
-            .FirstOrDefaultAsync(o => o.UserId == UserId && EF.Functions.Like(o.Name, name), ct);
+            .FirstOrDefaultAsync(o => o.UserId == UserId && o.Name.ToLower() == name.ToLower(), ct);
     }
 
     public async Task<Opponent> GetOrCreateAsync(string name, string? race, DateTime? seenAt = null, CancellationToken ct = default)
@@ -72,7 +72,7 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(query))
-            q = q.Where(o => EF.Functions.Like(o.Name, $"%{query}%"));
+            q = q.Where(o => o.Name.ToLower().Contains(query.ToLower()));
 
         if (!string.IsNullOrWhiteSpace(raceFilter))
             q = q.Where(o => o.Race == raceFilter);
