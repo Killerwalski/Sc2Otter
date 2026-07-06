@@ -58,8 +58,16 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
 
     public async Task UpdateOpponentAsync(Opponent opponent, CancellationToken ct = default)
     {
-        if (opponent.UserId != UserId) throw new UnauthorizedAccessException();
-        db.Opponents.Update(opponent);
+        var existing = await db.Opponents.FirstOrDefaultAsync(o => o.Id == opponent.Id && o.UserId == UserId, ct);
+        if (existing is null) throw new UnauthorizedAccessException();
+
+        existing.Name = opponent.Name;
+        existing.Race = opponent.Race;
+        existing.FirstSeen = opponent.FirstSeen;
+        existing.LastSeen = opponent.LastSeen;
+        existing.Mmr = opponent.Mmr;
+        existing.League = opponent.League;
+
         await db.SaveChangesAsync(ct);
     }
 
