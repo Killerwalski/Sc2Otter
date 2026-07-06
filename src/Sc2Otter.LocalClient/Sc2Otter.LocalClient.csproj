@@ -16,4 +16,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Sc2Otter.Core\Sc2Otter.Core.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <None Update="PythonSidecar\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
