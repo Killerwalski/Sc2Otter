@@ -12,6 +12,8 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject ILogger<Settings> Logger
 @inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@implements IAsyncDisposable
 
 <div class="page-header">
     <h1>Settings</h1>
@@ -68,7 +70,14 @@
                 <button class="btn btn-warning" style="padding: 6px 12px;" @onclick="TriggerBulkImport" disabled="@_isImporting">
                     @if (_isImporting)
                     {
-                        <span>Importing in background...</span>
+                        if (_importTotal > 0)
+                        {
+                            <span>Importing... @(_importCurrent) / @(_importTotal)</span>
+                        }
+                        else
+                        {
+                            <span>Importing in background...</span>
+                        }
                     }
                     else
                     {
@@ -198,6 +207,9 @@
     private string SyncKey = "";
     private bool ShowSyncKey = false;
     private bool _isImporting = false;
+    private int _importCurrent = 0;
+    private int _importTotal = 0;
+    private HubConnection? _hubConnection;
 
     private string WipeMessage = "";
 
@@ -213,6 +225,26 @@
             if (user != null)
             {
                 SyncKey = user.SyncKey;
+                
+                var url = Navigation.ToAbsoluteUri($"/scouthub?syncKey={SyncKey}").ToString();
+                _hubConnection = new HubConnectionBuilder()
+                    .WithUrl(url)
+                    .WithAutomaticReconnect()
+                    .Build();
+
+                _hubConnection.On<int, int>("BulkScanProgress", (current, total) =>
+                {
+                    _isImporting = true;
+                    _importCurrent = current;
+                    _importTotal = total;
+                    if (current == total)
+                    {
+                        _isImporting = false;
+                    }
+                    InvokeAsync(StateHasChanged);
+                });
+
+                await _hubConnection.StartAsync();
             }
         }
     }
@@ -300,5 +332,11 @@
         }
     }
 
-    /* Bulk scan logic removed because ReplayAnalyzer is in the LocalClient now */
+    public async ValueTask DisposeAsync()
+    {
+        if (_hubConnection is not null)
+        {
+            await _hubConnection.DisposeAsync();
+        }
+    }
 }

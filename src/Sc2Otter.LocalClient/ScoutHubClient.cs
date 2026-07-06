@@ -94,4 +94,12 @@ public class ScoutHubClient
             await _connection.InvokeAsync("TriggerNoteInput", ct);
         }
     }
+
+    public async Task PushBulkScanProgressAsync(int current, int total, CancellationToken ct = default)
+    {
+        if (_connection.State == HubConnectionState.Connected)
+        {
+            await _connection.InvokeAsync("PushBulkScanProgress", current, total, ct);
+        }
+    }
 }

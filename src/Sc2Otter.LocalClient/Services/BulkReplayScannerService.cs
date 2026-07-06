@@ -96,6 +96,9 @@ public class BulkReplayScannerService : BackgroundService
                 
                 await analyzer.AnalyzeReplayAsync(file.FullName, ct);
                 
+                // Report progress
+                await _hubClient.PushBulkScanProgressAsync(count, files.Count, ct);
+                
                 // Sleep slightly to prevent maxing out the CPU completely
                 await Task.Delay(500, ct);
             }

@@ -168,6 +168,12 @@ public class ScoutHub(IServiceScopeFactory scopeFactory, ILogger<ScoutHub> logge
         if (userId.HasValue) await Clients.OthersInGroup($"User_{userId.Value}").SendAsync("LocalClientHeartbeat");
     }
 
+    public async Task PushBulkScanProgress(int current, int total)
+    {
+        var userId = await GetUserIdAsync();
+        if (userId.HasValue) await Clients.OthersInGroup($"User_{userId.Value}").SendAsync("BulkScanProgress", current, total);
+    }
+
     public override async Task OnConnectedAsync()
     {
         var userId = await GetUserIdAsync();

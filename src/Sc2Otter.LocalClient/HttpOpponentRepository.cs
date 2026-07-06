@@ -87,7 +87,11 @@ public class HttpOpponentRepository(HttpClient http) : IOpponentRepository
     public async Task<MatchRecord> RecordMatchAsync(int opponentId, RecordMatchRequest req, CancellationToken ct = default)
     {
         var res = await http.PostAsJsonAsync($"/api/opponents/{opponentId}/matches", req, ct);
-        res.EnsureSuccessStatusCode();
+        if (!res.IsSuccessStatusCode)
+        {
+            var err = await res.Content.ReadAsStringAsync(ct);
+            throw new Exception($"Server returned {res.StatusCode}: {err}");
+        }
         return await res.Content.ReadFromJsonAsync<MatchRecord>(cancellationToken: ct) ?? throw new Exception();
     }
     
