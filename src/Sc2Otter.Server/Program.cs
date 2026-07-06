@@ -1,7 +1,11 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication;
+using System.Security.Claims;
 using Sc2Otter.Core.Interfaces;
 using Sc2Otter.Data;
 using Sc2Otter.Data.Repositories;
+using Sc2Otter.Server;
 using Sc2Otter.Server.Components;
 using Sc2Otter.Server.Hubs;
 using Sc2Otter.Server.Services;
@@ -10,31 +14,90 @@ using System.Diagnostics;
 var builder = WebApplication.CreateBuilder(args);
 
 // --- Database ---
-var dbFolder = Path.Combine(
-    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-    "Sc2Otter");
-Directory.CreateDirectory(dbFolder);
-var dbPath = Path.Combine(dbFolder, "scout.db");
+// Parse Railway's DATABASE_URL if it exists
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+if (!string.IsNullOrEmpty(databaseUrl))
+{
+    // postgresql://user:pass@host:port/dbname
+    var uri = new Uri(databaseUrl);
+    var userInfo = uri.UserInfo.Split(':');
+    connectionString = $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={userInfo[1]};Ssl Mode=Require;Trust Server Certificate=true;";
+}
 
 builder.Services.AddDbContext<ScoutDbContext>(options =>
-    options.UseSqlite($"Data Source={dbPath}"));
-
-// --- Services ---
-builder.Services.AddScoped<IOpponentRepository, OpponentRepository>();
-builder.Services.AddSingleton<SettingsService>();
-builder.Services.AddSingleton<ReplayAnalysisService>();
-
-builder.Services.AddHttpClient<ISc2GameClient, Sc2GameClient>(client =>
 {
-    client.BaseAddress = new Uri("http://localhost:6119");
-    client.Timeout = TimeSpan.FromSeconds(3);
+    options.UseNpgsql(connectionString);
 });
 
-builder.Services.AddHttpClient<Sc2PulseClient>();
+// --- Authentication ---
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = "Discord";
+})
+.AddCookie(options =>
+{
+    options.LoginPath = "/login";
+    options.LogoutPath = "/logout";
+})
+.AddDiscord(options =>
+{
+    options.ClientId = builder.Configuration["Discord:ClientId"] ?? "MissingClientId";
+    options.ClientSecret = builder.Configuration["Discord:ClientSecret"] ?? "MissingClientSecret";
+    options.SaveTokens = true;
+    options.Scope.Add("identify");
 
-// Background services
-builder.Services.AddHostedService<GameStateMonitor>();
-builder.Services.AddHostedService<HotkeyService>();
+    options.Events.OnCreatingTicket = async context =>
+    {
+        var db = context.HttpContext.RequestServices.GetRequiredService<ScoutDbContext>();
+        var discordId = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var username = context.Principal?.FindFirst(ClaimTypes.Name)?.Value;
+        var avatar = context.User.TryGetProperty("avatar", out var avatarElem) && avatarElem.ValueKind == System.Text.Json.JsonValueKind.String 
+            ? avatarElem.GetString() : null;
+        var avatarUrl = avatar != null ? $"https://cdn.discordapp.com/avatars/{discordId}/{avatar}.png" : null;
+
+        if (discordId != null)
+        {
+            var user = await db.Users.FirstOrDefaultAsync(u => u.DiscordId == discordId);
+            if (user == null)
+            {
+                user = new Sc2Otter.Core.Models.AppUser 
+                { 
+                    DiscordId = discordId, 
+                    Username = username ?? "Unknown", 
+                    AvatarUrl = avatarUrl,
+                    SyncKey = Guid.NewGuid().ToString("N")
+                };
+                db.Users.Add(user);
+            }
+            else
+            {
+                user.Username = username ?? user.Username;
+                user.AvatarUrl = avatarUrl;
+            }
+            await db.SaveChangesAsync();
+            
+            var identity = (ClaimsIdentity)context.Principal!.Identity!;
+            identity.AddClaim(new Claim("Sc2OtterUserId", user.Id.ToString()));
+            if (user.AvatarUrl != null)
+            {
+                identity.AddClaim(new Claim("avatarUrl", user.AvatarUrl));
+            }
+        }
+    };
+});
+
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddAuthorizationCore();
+
+// --- Services ---
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<IOpponentRepository, OpponentRepository>();
+builder.Services.AddSingleton<SettingsService>();
+// Services that stay in server
+// Local services have been moved to Sc2Otter.LocalClient
 
 // SignalR
 builder.Services.AddSignalR();
@@ -51,35 +114,6 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<ScoutDbContext>();
     await db.Database.EnsureCreatedAsync();
     
-    // Clean up local player from database
-    var settings = scope.ServiceProvider.GetRequiredService<SettingsService>();
-    if (!string.IsNullOrWhiteSpace(settings.Current.MySc2Name))
-    {
-        var me = await db.Opponents.FirstOrDefaultAsync(o => o.Name.ToLower() == settings.Current.MySc2Name.ToLower());
-        if (me != null)
-        {
-            db.Opponents.Remove(me);
-            await db.SaveChangesAsync();
-        }
-    }
-
-    // Fix any bad race strings from older data
-    var badTerr = await db.Opponents.Where(o => o.Race == "Terr" || o.Race == "terran").ToListAsync();
-    foreach(var o in badTerr) o.Race = "Terran";
-    
-    var badProt = await db.Opponents.Where(o => o.Race == "Prot" || o.Race == "protoss").ToListAsync();
-    foreach(var o in badProt) o.Race = "Protoss";
-    
-    var badRand = await db.Opponents.Where(o => o.Race == "Rand" || o.Race == "random").ToListAsync();
-    foreach(var o in badRand) o.Race = "Random";
-    
-    var badZerg = await db.Opponents.Where(o => o.Race == "zerg").ToListAsync();
-    foreach(var o in badZerg) o.Race = "Zerg";
-    
-    if (badTerr.Count > 0 || badProt.Count > 0 || badRand.Count > 0 || badZerg.Count > 0)
-    {
-        await db.SaveChangesAsync();
-    }
 }
 
 if (!app.Environment.IsDevelopment())
@@ -88,45 +122,20 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseStaticFiles();
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseAntiforgery();
 app.MapStaticAssets();
+
+app.MapGet("/login", () => Results.Challenge(new AuthenticationProperties { RedirectUri = "/" }, new[] { "Discord" }));
+app.MapGet("/logout", () => Results.SignOut(new AuthenticationProperties { RedirectUri = "/" }, new[] { CookieAuthenticationDefaults.AuthenticationScheme }));
 
 // SignalR hub
 app.MapHub<ScoutHub>("/scouthub");
 
-app.MapPost("/api/admin/scan-replays", (ReplayAnalysisService analyzer, SettingsService settingsService, ILogger<Program> logger) =>
-{
-    _ = Task.Run(async () => 
-    {
-        try
-        {
-            var replayDir = settingsService.Current.ReplayDirectory;
-            if (!Directory.Exists(replayDir)) return;
+// API
+app.MapApiEndpoints();
 
-            var cutoff = settingsService.Current.BulkScanCutoffDate;
-            
-            var files = Directory.GetFiles(replayDir, "*.SC2Replay", SearchOption.AllDirectories)
-                .Where(f => f.Contains("Multiplayer") && File.GetLastWriteTimeUtc(f) >= cutoff)
-                .ToList();
-                
-            logger.LogInformation("Found {Count} replays to scan since {Date}", files.Count, cutoff.ToString("yyyy-MM-dd"));
-            
-            int count = 0;
-            foreach (var file in files)
-            {
-                await analyzer.AnalyzeReplayAsync(file);
-                count++;
-                if (count % 10 == 0) logger.LogInformation("Scanned {Count}/{Total} replays...", count, files.Count);
-            }
-            logger.LogInformation("Finished scanning all {Total} replays", files.Count);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error during bulk replay scan");
-        }
-    });
-    return Results.Accepted(value: "Background scan started. Check console logs for progress.");
-});
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

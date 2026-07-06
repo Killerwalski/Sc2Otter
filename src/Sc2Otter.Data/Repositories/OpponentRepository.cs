@@ -4,13 +4,14 @@ using Microsoft.EntityFrameworkCore;
 using Sc2Otter.Core.Interfaces;
 using Sc2Otter.Core.Models;
 
-public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
+public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUserService) : IOpponentRepository
 {
+    private int UserId => currentUserService.UserId ?? throw new UnauthorizedAccessException("User not authenticated.");
     public async Task<Opponent?> FindByNameAsync(string name, CancellationToken ct = default)
     {
         return await db.Opponents
             .Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag)
-            .FirstOrDefaultAsync(o => EF.Functions.Like(o.Name, name), ct);
+            .FirstOrDefaultAsync(o => o.UserId == UserId && EF.Functions.Like(o.Name, name), ct);
     }
 
     public async Task<Opponent> GetOrCreateAsync(string name, string? race, DateTime? seenAt = null, CancellationToken ct = default)
@@ -30,6 +31,7 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
 
         opponent = new Opponent
         {
+            UserId = UserId,
             Name = name,
             Race = race,
             FirstSeen = time,
@@ -42,7 +44,7 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
 
     public async Task<Opponent?> GetByIdAsync(int id, CancellationToken ct = default)
     {
-        return await db.Opponents.FindAsync([id], ct);
+        return await db.Opponents.FirstOrDefaultAsync(o => o.UserId == UserId && o.Id == id, ct);
     }
 
     public async Task<Opponent?> GetWithDetailsAsync(int id, CancellationToken ct = default)
@@ -51,11 +53,12 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
             .Include(o => o.Notes.OrderByDescending(n => n.CreatedAt))
             .Include(o => o.MatchRecords.OrderByDescending(m => m.PlayedAt).Take(5))
             .Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag)
-            .FirstOrDefaultAsync(o => o.Id == id, ct);
+            .FirstOrDefaultAsync(o => o.UserId == UserId && o.Id == id, ct);
     }
 
     public async Task UpdateOpponentAsync(Opponent opponent, CancellationToken ct = default)
     {
+        if (opponent.UserId != UserId) throw new UnauthorizedAccessException();
         db.Opponents.Update(opponent);
         await db.SaveChangesAsync(ct);
     }
@@ -63,6 +66,7 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
     public async Task<List<Opponent>> SearchAsync(string? query = null, string? raceFilter = null, string? tagFilter = null, string? modeFilter = null, CancellationToken ct = default)
     {
         var q = db.Opponents
+            .Where(o => o.UserId == UserId)
             .Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag)
             .Include(o => o.MatchRecords)
             .AsQueryable();
@@ -85,6 +89,7 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
     public async Task<List<Opponent>> GetRecentAsync(int count = 10, CancellationToken ct = default)
     {
         return await db.Opponents
+            .Where(o => o.UserId == UserId)
             .Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag)
             .Include(o => o.MatchRecords)
             .OrderByDescending(o => o.LastSeen)
@@ -109,7 +114,7 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
 
     public async Task UpdateNoteAsync(int noteId, string content, CancellationToken ct = default)
     {
-        var note = await db.Notes.FindAsync([noteId], ct);
+        var note = await db.Notes.Include(n => n.Opponent).FirstOrDefaultAsync(n => n.Id == noteId && n.Opponent.UserId == UserId, ct);
         if (note is null) return;
         note.Content = content;
         note.UpdatedAt = DateTime.UtcNow;
@@ -118,7 +123,7 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
 
     public async Task DeleteNoteAsync(int noteId, CancellationToken ct = default)
     {
-        var note = await db.Notes.FindAsync([noteId], ct);
+        var note = await db.Notes.Include(n => n.Opponent).FirstOrDefaultAsync(n => n.Id == noteId && n.Opponent.UserId == UserId, ct);
         if (note is null) return;
         db.Notes.Remove(note);
         await db.SaveChangesAsync(ct);
@@ -126,7 +131,7 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
 
     public async Task AddTagAsync(int opponentId, string tagName, CancellationToken ct = default)
     {
-        var opponent = await db.Opponents.Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag).FirstOrDefaultAsync(o => o.Id == opponentId, ct);
+        var opponent = await db.Opponents.Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag).FirstOrDefaultAsync(o => o.UserId == UserId && o.Id == opponentId, ct);
         if (opponent is null) return;
 
         var tag = await db.Tags.FirstOrDefaultAsync(t => t.Name == tagName, ct);
@@ -151,7 +156,7 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
 
     public async Task RemoveTagAsync(int opponentId, string tagName, CancellationToken ct = default)
     {
-        var opponent = await db.Opponents.Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag).FirstOrDefaultAsync(o => o.Id == opponentId, ct);
+        var opponent = await db.Opponents.Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag).FirstOrDefaultAsync(o => o.UserId == UserId && o.Id == opponentId, ct);
         if (opponent is null) return;
 
         var assignment = opponent.TagAssignments.FirstOrDefault(ta => ta.Tag.Name == tagName);
@@ -167,49 +172,58 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
         return await db.Tags.OrderBy(t => t.Name).ToListAsync(ct);
     }
 
-    public async Task<MatchRecord> RecordMatchAsync(int opponentId, MatchResult result, string? mapName = null, string? myRace = null, string? opponentRace = null, string? gameMode = null, DateTime? playedAt = null, string? fullMatchData = null, Action<MatchRecord>? updateStats = null, CancellationToken ct = default)
+    public async Task<MatchRecord> RecordMatchAsync(int opponentId, RecordMatchRequest req, CancellationToken ct = default)
     {
-        var recordTime = playedAt ?? DateTime.UtcNow;
-        var record = new MatchRecord
+        var match = new MatchRecord
         {
             OpponentId = opponentId,
-            Result = result,
-            MapName = mapName,
-            MyRace = myRace,
-            OpponentRace = opponentRace,
-            GameMode = gameMode,
-            PlayedAt = recordTime,
-            FullMatchData = fullMatchData
+            Result = req.Result,
+            MapName = req.MapName,
+            MyRace = req.MyRace,
+            OpponentRace = req.OpponentRace,
+            GameMode = req.GameMode,
+            PlayedAt = req.PlayedAt ?? DateTime.UtcNow,
+            FullMatchData = req.FullMatchData,
+            MyUnitsMade = req.MyUnitsMade,
+            MyWorkersCreated = req.MyWorkersCreated,
+            MySupplyBlockTime = req.MySupplyBlockTime,
+            MyAvgUnspentMinerals = req.MyAvgUnspentMinerals,
+            MyAvgMineralIncome = req.MyAvgMineralIncome,
+            OpponentUnitsMade = req.OpponentUnitsMade,
+            OpponentWorkersCreated = req.OpponentWorkersCreated,
+            OpponentSupplyBlockTime = req.OpponentSupplyBlockTime,
+            OpponentAvgUnspentMinerals = req.OpponentAvgUnspentMinerals,
+            OpponentAvgMineralIncome = req.OpponentAvgMineralIncome
         };
         
-        updateStats?.Invoke(record);
 
-        db.MatchRecords.Add(record);
+        db.MatchRecords.Add(match);
 
-        var opponent = await db.Opponents.FindAsync([opponentId], ct);
+        var opponent = await db.Opponents.FirstOrDefaultAsync(o => o.UserId == UserId && o.Id == opponentId, ct);
         if (opponent is not null)
         {
-            if (opponent.LastSeen < recordTime)
+            if (req.PlayedAt > opponent.LastSeen)
             {
-                opponent.LastSeen = recordTime;
+                opponent.LastSeen = req.PlayedAt ?? DateTime.UtcNow;
+                opponent.Race = req.OpponentRace ?? opponent.Race;
             }
-            if (opponentRace is not null) opponent.Race = opponentRace;
+            db.Opponents.Update(opponent);
         }
 
         await db.SaveChangesAsync(ct);
-        return record;
+        return match;
     }
 
     public async Task<MatchRecord?> GetMatchByIdAsync(int matchId, CancellationToken ct = default)
     {
         return await db.MatchRecords
             .Include(m => m.Opponent)
-            .FirstOrDefaultAsync(m => m.Id == matchId, ct);
+            .FirstOrDefaultAsync(m => m.Id == matchId && m.Opponent.UserId == UserId, ct);
     }
 
     public async Task<(int TotalGames, int Wins, int Losses)> GetStatsAsync(int opponentId, CancellationToken ct = default)
     {
-        var records = await db.MatchRecords.Where(m => m.OpponentId == opponentId).ToListAsync(ct);
+        var records = await db.MatchRecords.Where(m => m.OpponentId == opponentId && m.Opponent.UserId == UserId).ToListAsync(ct);
         return (
             records.Count,
             records.Count(r => r.Result == MatchResult.Win),
@@ -219,9 +233,6 @@ public class OpponentRepository(ScoutDbContext db) : IOpponentRepository
 
     public async Task WipeDatabaseAsync(CancellationToken ct = default)
     {
-        await db.Opponents.ExecuteDeleteAsync(ct);
-        await db.MatchRecords.ExecuteDeleteAsync(ct);
-        await db.Notes.ExecuteDeleteAsync(ct);
-        await db.Tags.ExecuteDeleteAsync(ct);
+        await db.Opponents.Where(o => o.UserId == UserId).ExecuteDeleteAsync(ct);
     }
 }

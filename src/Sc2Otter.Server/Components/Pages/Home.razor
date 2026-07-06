@@ -166,15 +166,6 @@
     {
         RecentOpponents = await Repo.GetRecentAsync(6);
 
-        var monitor = ServiceProvider.GetServices<IHostedService>()
-            .OfType<GameStateMonitor>()
-            .FirstOrDefault();
-            
-        if (monitor is not null)
-        {
-            CurrentState = monitor.CurrentState;
-            DetectedOpponents = monitor.CurrentOpponents.ToList();
-        }
 
         _hubConnection = new HubConnectionBuilder()
             .WithUrl(Navigation.ToAbsoluteUri("/scouthub"))

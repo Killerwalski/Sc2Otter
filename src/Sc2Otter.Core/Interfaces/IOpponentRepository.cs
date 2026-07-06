@@ -17,7 +17,7 @@ public interface IOpponentRepository
     Task AddTagAsync(int opponentId, string tagName, CancellationToken ct = default);
     Task RemoveTagAsync(int opponentId, string tagName, CancellationToken ct = default);
     Task<List<OpponentTag>> GetAllTagsAsync(CancellationToken ct = default);
-    Task<MatchRecord> RecordMatchAsync(int opponentId, MatchResult result, string? mapName = null, string? myRace = null, string? opponentRace = null, string? gameMode = null, DateTime? playedAt = null, string? fullMatchData = null, Action<MatchRecord>? updateStats = null, CancellationToken ct = default);
+    Task<MatchRecord> RecordMatchAsync(int opponentId, RecordMatchRequest req, CancellationToken ct = default);
     Task<MatchRecord?> GetMatchByIdAsync(int matchId, CancellationToken ct = default);
     Task<(int TotalGames, int Wins, int Losses)> GetStatsAsync(int opponentId, CancellationToken ct = default);
     Task WipeDatabaseAsync(CancellationToken ct = default);

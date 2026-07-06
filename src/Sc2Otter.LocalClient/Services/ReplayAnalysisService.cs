@@ -1,4 +1,4 @@
-namespace Sc2Otter.Server.Services;
+namespace Sc2Otter.LocalClient.Services;
 
 using System.Diagnostics;
 using System.Text.Json;
@@ -120,30 +120,40 @@ public class ReplayAnalysisService(
                     
                     var fullMatchDataStr = JsonSerializer.Serialize(result.Data);
                     
-                    await repo.RecordMatchAsync(opponent.Id, ourResult, result.MapName, myResult?.Race, playerResult.Race, result.GameMode, result.StartTime, fullMatchDataStr, match => {
-                        if (myResult?.Stats != null)
-                        {
-                            match.MyWorkersCreated = myResult.Stats.WorkersCreated;
-                            match.MySupplyBlockTime = myResult.Stats.SupplyBlockTime;
-                            match.MyAvgUnspentMinerals = myResult.Stats.AvgUnspentMinerals;
-                            match.MyAvgMineralIncome = myResult.Stats.AvgMineralIncome;
-                        }
-                        if (myResult?.UnitsMade != null)
-                        {
-                            match.MyUnitsMade = JsonSerializer.Serialize(myResult.UnitsMade);
-                        }
-                        if (playerResult.Stats != null)
-                        {
-                            match.OpponentWorkersCreated = playerResult.Stats.WorkersCreated;
-                            match.OpponentSupplyBlockTime = playerResult.Stats.SupplyBlockTime;
-                            match.OpponentAvgUnspentMinerals = playerResult.Stats.AvgUnspentMinerals;
-                            match.OpponentAvgMineralIncome = playerResult.Stats.AvgMineralIncome;
-                        }
-                        if (playerResult.UnitsMade != null)
-                        {
-                            match.OpponentUnitsMade = JsonSerializer.Serialize(playerResult.UnitsMade);
-                        }
-                    }, ct);
+                    var req = new RecordMatchRequest {
+                        Result = ourResult,
+                        MapName = result.MapName,
+                        MyRace = myResult?.Race,
+                        OpponentRace = playerResult.Race,
+                        GameMode = result.GameMode,
+                        PlayedAt = result.StartTime,
+                        FullMatchData = fullMatchDataStr
+                    };
+
+                    if (myResult?.Stats != null)
+                    {
+                        req.MyWorkersCreated = myResult.Stats.WorkersCreated;
+                        req.MySupplyBlockTime = myResult.Stats.SupplyBlockTime;
+                        req.MyAvgUnspentMinerals = myResult.Stats.AvgUnspentMinerals;
+                        req.MyAvgMineralIncome = myResult.Stats.AvgMineralIncome;
+                    }
+                    if (myResult?.UnitsMade != null)
+                    {
+                        req.MyUnitsMade = JsonSerializer.Serialize(myResult.UnitsMade);
+                    }
+                    if (playerResult.Stats != null)
+                    {
+                        req.OpponentWorkersCreated = playerResult.Stats.WorkersCreated;
+                        req.OpponentSupplyBlockTime = playerResult.Stats.SupplyBlockTime;
+                        req.OpponentAvgUnspentMinerals = playerResult.Stats.AvgUnspentMinerals;
+                        req.OpponentAvgMineralIncome = playerResult.Stats.AvgMineralIncome;
+                    }
+                    if (playerResult.UnitsMade != null)
+                    {
+                        req.OpponentUnitsMade = JsonSerializer.Serialize(playerResult.UnitsMade);
+                    }
+
+                    await repo.RecordMatchAsync(opponent.Id, req, ct);
                 }
                 return true;
             }

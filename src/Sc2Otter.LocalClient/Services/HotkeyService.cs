@@ -1,10 +1,10 @@
-namespace Sc2Otter.Server.Services;
+namespace Sc2Otter.LocalClient.Services;
 
 using System.Runtime.InteropServices;
 using Microsoft.AspNetCore.SignalR;
-using Sc2Otter.Server.Hubs;
+using Sc2Otter.LocalClient.Services;
 
-public class HotkeyService(IHubContext<ScoutHub> hubContext, SettingsService settings, ILogger<HotkeyService> logger) : BackgroundService
+public class HotkeyService(ScoutHubClient hubClient, SettingsService settings, ILogger<HotkeyService> logger) : BackgroundService
 {
     private const int MOD_ALT = 0x0001;
     private const int MOD_CONTROL = 0x0002;
@@ -116,7 +116,7 @@ public class HotkeyService(IHubContext<ScoutHub> hubContext, SettingsService set
                         if (hotkeyId == HOTKEY_ADD_NOTE)
                         {
                             logger.LogInformation("Hotkey pressed");
-                            _ = hubContext.Clients.All.SendAsync("ActivateNoteInput", ct);
+                            _ = hubClient.TriggerNoteInputAsync(ct);
                         }
                     }
 

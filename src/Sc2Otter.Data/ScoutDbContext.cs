@@ -5,6 +5,7 @@ using Sc2Otter.Core.Models;
 
 public class ScoutDbContext(DbContextOptions<ScoutDbContext> options) : DbContext(options)
 {
+    public DbSet<AppUser> Users => Set<AppUser>();
     public DbSet<Opponent> Opponents => Set<Opponent>();
     public DbSet<OpponentNote> Notes => Set<OpponentNote>();
     public DbSet<OpponentTag> Tags => Set<OpponentTag>();
@@ -16,7 +17,10 @@ public class ScoutDbContext(DbContextOptions<ScoutDbContext> options) : DbContex
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
-            entity.HasIndex(e => e.Name);
+            entity.HasIndex(e => new { e.UserId, e.Name });
+            
+            entity.HasOne(e => e.User).WithMany(u => u.Opponents).HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Cascade);
+            
             entity.HasMany(e => e.Notes).WithOne(n => n.Opponent).HasForeignKey(n => n.OpponentId).OnDelete(DeleteBehavior.Cascade);
             entity.HasMany(e => e.MatchRecords).WithOne(m => m.Opponent).HasForeignKey(m => m.OpponentId).OnDelete(DeleteBehavior.Cascade);
             entity.HasMany(e => e.Tags).WithMany(t => t.Opponents)

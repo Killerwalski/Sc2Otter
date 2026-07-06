@@ -1,15 +1,15 @@
-namespace Sc2Otter.Server.Services;
+namespace Sc2Otter.LocalClient.Services;
 
 using Microsoft.AspNetCore.SignalR;
 using Sc2Otter.Core.Events;
 using Sc2Otter.Core.Interfaces;
 using Sc2Otter.Core.Models;
-using Sc2Otter.Server.Hubs;
+using Sc2Otter.LocalClient.Services;
 
 public class GameStateMonitor(
     ISc2GameClient sc2Client,
     IServiceScopeFactory scopeFactory,
-    IHubContext<ScoutHub> hubContext,
+    ScoutHubClient hubClient,
     SettingsService settings,
     Sc2PulseClient sc2PulseClient,
     ILogger<GameStateMonitor> logger) : BackgroundService
@@ -99,7 +99,7 @@ public class GameStateMonitor(
                 if (newlyDetectedOpponents.Count > 0)
                 {
                     _currentOpponents = newlyDetectedOpponents;
-                    await hubContext.Clients.All.SendAsync("OpponentsDetected", newlyDetectedOpponents, ct);
+                    await hubClient.PushOpponentsDetectedAsync(newlyDetectedOpponents, ct);
                 }
             }
         }
@@ -167,7 +167,7 @@ public class GameStateMonitor(
                     if (newlyDetectedOpponents.Count > 0)
                     {
                         _currentOpponents = newlyDetectedOpponents;
-                        await hubContext.Clients.All.SendAsync("OpponentsDetected", newlyDetectedOpponents, ct);
+                        await hubClient.PushOpponentsDetectedAsync(newlyDetectedOpponents, ct);
                     }
                 }
                 else
@@ -204,7 +204,7 @@ public class GameStateMonitor(
         }
 
         var stateEvent = new GameStateChangedEvent(newState, newlyDetectedOpponents, DateTime.UtcNow);
-        await hubContext.Clients.All.SendAsync("GameStateChanged", stateEvent, ct);
+        await hubClient.PushGameStateAsync(stateEvent, ct);
     }
 
     private async Task<List<OpponentDetectedEvent>> DetectOpponentsAsync(Sc2GameResponse? gameInfo, CancellationToken ct, bool ignoreCache = false)
@@ -344,16 +344,19 @@ public class GameStateMonitor(
                 _ => MatchResult.Unknown
             };
 
-            await repo.RecordMatchAsync(
-                opponentId, ourResult, _lastMapName,
-                myRace: null, opponentRace: player.Race,
-                gameMode: null, ct: ct);
+            await repo.RecordMatchAsync(opponentId, new RecordMatchRequest {
+                Result = ourResult,
+                MapName = _lastMapName,
+                MyRace = null,
+                OpponentRace = player.Race,
+                GameMode = null
+            }, ct);
 
             logger.LogInformation("Match recorded vs {Name}: {Result}", player.Name, ourResult);
         }
 
         // Notify UI of post-game
-        await hubContext.Clients.All.SendAsync("PostGameResults", gameInfo.Players, ct);
+        await hubClient.PushPostGameResultsAsync(gameInfo.Players, ct);
         
         // Analyze the replay! Give it a brief delay to ensure the file is written and unlocked by SC2
         _ = Task.Run(async () =>

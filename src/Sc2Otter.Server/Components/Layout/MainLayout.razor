@@ -22,10 +22,37 @@
             </NavLink>
         </div>
         <div class="sidebar-footer">
+            <AuthorizeView>
+                <Authorized>
+                    <div class="user-profile" style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 13px;">
+                        @if (context.User.FindFirst("avatarUrl")?.Value is string avatar)
+                        {
+                            <img src="@avatar" style="width: 24px; height: 24px; border-radius: 50%;" />
+                        }
+                        <div style="flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            @context.User.Identity?.Name
+                        </div>
+                        <a href="/logout" style="color: var(--text-muted); text-decoration: none;">Exit</a>
+                    </div>
+                </Authorized>
+                <NotAuthorized>
+                    <a href="/login" class="btn btn-primary" style="display: block; text-align: center; margin-bottom: 12px;">Login</a>
+                </NotAuthorized>
+            </AuthorizeView>
             <ConnectionStatus />
         </div>
     </nav>
     <main class="main-content">
-        @Body
+        <AuthorizeView>
+            <Authorized>
+                @Body
+            </Authorized>
+            <NotAuthorized>
+                <div style="padding: 40px; text-align: center;">
+                    <h2>Welcome to Sc2Otter</h2>
+                    <p>Please login with Discord to access your scouting data.</p>
+                </div>
+            </NotAuthorized>
+        </AuthorizeView>
     </main>
 </div>

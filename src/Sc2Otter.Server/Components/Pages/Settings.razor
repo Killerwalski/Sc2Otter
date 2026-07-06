@@ -4,7 +4,9 @@
 @using Sc2Otter.Core.Interfaces
 @inject SettingsService SettingsService
 @inject IServiceScopeFactory ScopeFactory
-@inject ReplayAnalysisService ReplayAnalyzer
+@inject Sc2Otter.Data.ScoutDbContext DbContext
+@inject AuthenticationStateProvider AuthStateProvider
+
 @inject ILogger<Settings> Logger
 @inject IJSRuntime JSRuntime
 
@@ -23,6 +25,31 @@
             </div>
             <div>
                 <input type="text" class="form-control" style="width: 400px; background: var(--bg-tertiary); color: white; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 4px;" @bind="TempSettings.MySc2Name" placeholder="e.g. APECRAFT, FriendName" />
+            </div>
+        </div>
+    </div>
+
+    <div class="settings-section">
+        <h3>Local Client Integration</h3>
+        <div class="setting-row">
+            <div>
+                <div class="setting-label">Sync Key</div>
+                <div class="setting-description">Use this key in your Local Client config to sync data to your account. Do not share this key!</div>
+            </div>
+            <div>
+                @if (string.IsNullOrEmpty(SyncKey))
+                {
+                    <span style="color: var(--text-muted);">Loading...</span>
+                }
+                else
+                {
+                    <div style="display: flex; gap: 8px;">
+                        <input type="@(ShowSyncKey ? "text" : "password")" class="form-control" style="width: 320px; background: var(--bg-tertiary); color: white; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 4px;" value="@SyncKey" readonly />
+                        <button class="btn btn-secondary" @onclick="() => ShowSyncKey = !ShowSyncKey">
+                            @(ShowSyncKey ? "Hide" : "Reveal")
+                        </button>
+                    </div>
+                }
             </div>
         </div>
     </div>
@@ -98,22 +125,15 @@
                 <input type="date" class="form-control" style="width: 200px; background: var(--bg-tertiary); color: white; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 4px;" @bind="TempSettings.BulkScanCutoffDate" />
             </div>
         </div>
+        <!-- Bulk scan moved to local client -->
         <div class="setting-row" style="margin-top: 15px;">
             <div>
                 <div class="setting-label">Bulk Scan Replays</div>
-                <div class="setting-description">Scans all replays in directory since the cutoff date</div>
+                <div class="setting-description">Moved to Local Client.</div>
             </div>
             <div style="display: flex; align-items: center; gap: 12px;">
-                @if (!string.IsNullOrEmpty(ScanProgressMessage))
-                {
-                    <span style="color: var(--text-muted); font-size: 13px;">@ScanProgressMessage</span>
-                }
-                else if (!string.IsNullOrEmpty(TempSettings.LastScanResult))
-                {
-                    <span style="color: var(--text-muted); font-size: 13px;">@TempSettings.LastScanResult</span>
-                }
-                <button class="btn btn-secondary" style="padding: 6px 12px;" @onclick="StartBulkScan" disabled="@IsScanning">
-                    @(IsScanning ? "Scanning..." : "Scan Replays")
+                <button class="btn btn-secondary" style="padding: 6px 12px;" disabled>
+                    Not Available in Cloud
                 </button>
             </div>
         </div>
@@ -161,15 +181,26 @@
 @code {
     private UserSettings TempSettings { get; set; } = new();
     private bool ShowSaved = false;
-    private bool IsScanning = false;
     private bool IsWiping = false;
+    private string SyncKey = "";
+    private bool ShowSyncKey = false;
 
     private string WipeMessage = "";
-    private string ScanProgressMessage = "";
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         TempSettings = SettingsService.Current.Clone();
+        
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userIdStr = authState.User.FindFirst("Sc2OtterUserId")?.Value;
+        if (int.TryParse(userIdStr, out var userId))
+        {
+            var user = await DbContext.Users.FindAsync(userId);
+            if (user != null)
+            {
+                SyncKey = user.SyncKey;
+            }
+        }
     }
 
     private async Task SaveSettings()
@@ -221,67 +252,5 @@
         }
     }
 
-    private async Task StartBulkScan()
-    {
-        if (IsScanning) return;
-        IsScanning = true;
-        await InvokeAsync(StateHasChanged);
-        
-        // Ensure settings are saved first so the bulk scan uses the latest directory and MyName
-        SettingsService.Update(TempSettings);
-        
-        _ = Task.Run(async () => 
-        {
-            try
-            {
-                var replayDir = SettingsService.Current.ReplayDirectory;
-                if (!Directory.Exists(replayDir)) 
-                {
-                    Logger.LogWarning("Replay directory not found: {Dir}", replayDir);
-                    return;
-                }
-
-                var cutoff = SettingsService.Current.BulkScanCutoffDate;
-                var files = Directory.GetFiles(replayDir, "*.SC2Replay", SearchOption.AllDirectories)
-                    .Where(f => f.Contains("Multiplayer") && File.GetLastWriteTimeUtc(f) >= cutoff)
-                    .ToList();
-                    
-                Logger.LogInformation("Found {Count} replays to scan", files.Count);
-                ScanProgressMessage = $"Found {files.Count} replays to scan...";
-                await InvokeAsync(StateHasChanged);
-                
-                int count = 0;
-                int imported = 0;
-                foreach (var file in files)
-                {
-                    var success = await ReplayAnalyzer.AnalyzeReplayAsync(file);
-                    if (success) imported++;
-                    
-                    count++;
-                    if (count % 5 == 0)
-                    {
-                        ScanProgressMessage = $"Scanned {count}/{files.Count}...";
-                        await InvokeAsync(StateHasChanged);
-                    }
-                }
-                Logger.LogInformation("Finished scanning all {Total} replays. Imported: {Imported}", files.Count, imported);
-                
-                var resultMsg = $"Last scanned {DateTime.Now:MMM d, h:mm tt}: {imported}/{files.Count} replays imported.";
-                ScanProgressMessage = resultMsg;
-                TempSettings.LastScanResult = resultMsg;
-                SettingsService.Update(TempSettings);
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Error during bulk replay scan");
-                ScanProgressMessage = "Error during scan. See logs.";
-            }
-            finally
-            {
-                IsScanning = false;
-                ScanProgressMessage = ""; // Clear active progress to let the saved result show
-                await InvokeAsync(StateHasChanged);
-            }
-        });
-    }
+    /* Bulk scan logic removed because ReplayAnalyzer is in the LocalClient now */
 }
