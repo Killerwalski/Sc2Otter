@@ -20,6 +20,7 @@
     [Parameter] public EventCallback<string> OnTagAdded { get; set; }
     [Parameter] public EventCallback<string> OnTagRemoved { get; set; }
 
+    private List<OpponentTag> AllTags { get; set; } = [];
     private HashSet<string> PlayedRaces { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     protected override async Task OnInitializedAsync()
