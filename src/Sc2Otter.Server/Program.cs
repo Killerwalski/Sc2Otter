@@ -56,18 +56,26 @@ builder.Services.AddAuthentication(options =>
 
     options.Events.OnCreatingTicket = async context =>
     {
+        var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogInformation("Discord OAuth: OnCreatingTicket started for user.");
+
         var db = context.HttpContext.RequestServices.GetRequiredService<ScoutDbContext>();
         var discordId = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         var username = context.Principal?.FindFirst(ClaimTypes.Name)?.Value;
+        
+        logger.LogInformation("Discord OAuth: Found Discord ID: {DiscordId}, Username: {Username}", discordId, username);
+
         var avatar = context.User.TryGetProperty("avatar", out var avatarElem) && avatarElem.ValueKind == System.Text.Json.JsonValueKind.String 
             ? avatarElem.GetString() : null;
         var avatarUrl = avatar != null ? $"https://cdn.discordapp.com/avatars/{discordId}/{avatar}.png" : null;
 
         if (discordId != null)
         {
+            logger.LogInformation("Discord OAuth: Querying database for user.");
             var user = await db.Users.FirstOrDefaultAsync(u => u.DiscordId == discordId);
             if (user == null)
             {
+                logger.LogInformation("Discord OAuth: Creating new user.");
                 user = new Sc2Otter.Core.Models.AppUser 
                 { 
                     DiscordId = discordId, 
@@ -82,7 +90,9 @@ builder.Services.AddAuthentication(options =>
                 user.Username = username ?? user.Username;
                 user.AvatarUrl = avatarUrl;
             }
+            logger.LogInformation("Discord OAuth: Saving changes to database.");
             await db.SaveChangesAsync();
+            logger.LogInformation("Discord OAuth: Database save complete. UserId: {UserId}", user.Id);
             
             var identity = (ClaimsIdentity)context.Principal!.Identity!;
             identity.AddClaim(new Claim("Sc2OtterUserId", user.Id.ToString()));
@@ -91,6 +101,7 @@ builder.Services.AddAuthentication(options =>
                 identity.AddClaim(new Claim("avatarUrl", user.AvatarUrl));
             }
         }
+        logger.LogInformation("Discord OAuth: OnCreatingTicket complete.");
     };
 });
 
