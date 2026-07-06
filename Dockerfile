@@ -6,7 +6,7 @@ COPY *.slnx .
 COPY src/Sc2Otter.Server/*.csproj ./src/Sc2Otter.Server/
 COPY src/Sc2Otter.Core/*.csproj ./src/Sc2Otter.Core/
 COPY src/Sc2Otter.Data/*.csproj ./src/Sc2Otter.Data/
-COPY src/Sc2Otter.LocalClient/*.csproj ./src/Sc2Otter.LocalClient/
+COPY src/Sc2Otter.LocalOtter/*.csproj ./src/Sc2Otter.LocalOtter/
 COPY tests/Sc2Otter.Tests/*.csproj ./tests/Sc2Otter.Tests/
 
 RUN dotnet restore
