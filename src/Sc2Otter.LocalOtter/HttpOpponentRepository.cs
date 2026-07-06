@@ -87,7 +87,31 @@ public class HttpOpponentRepository(HttpClient http) : IOpponentRepository
 
     public async Task<List<OpponentTag>> GetAllTagsAsync(CancellationToken ct = default)
     {
-        return [];
+        return await http.GetFromJsonAsync<List<OpponentTag>>("api/tags", ct) ?? [];
+    }
+
+    public async Task<bool> IsMatchAlreadyAnalyzedAsync(int opponentId, DateTime playedAt, CancellationToken ct = default)
+    {
+        // For LocalOtter, we could query the server, but the easiest way is to just fetch the opponent's recent matches
+        // and see if there's a duplicate. Alternatively we could add a dedicated endpoint.
+        // For now, we can just fetch the MatchRecords if they exist, or since it's just to prevent double-tagging on bulk scan,
+        // we can fetch the opponent details.
+        try
+        {
+            var opp = await GetWithDetailsAsync(opponentId, ct);
+            if (opp == null) return false;
+            
+            var exactDuplicate = opp.MatchRecords.FirstOrDefault(m => m.PlayedAt == playedAt);
+            if (exactDuplicate != null && exactDuplicate.FullMatchData != null) return true;
+            
+            var fuzzy = opp.MatchRecords.FirstOrDefault(m => m.FullMatchData != null && Math.Abs((playedAt - m.PlayedAt).TotalMinutes) < 60);
+            if (fuzzy != null) return true;
+        }
+        catch
+        {
+            // Ignore
+        }
+        return false;
     }
 
     public async Task<MatchRecord> RecordMatchAsync(int opponentId, RecordMatchRequest req, CancellationToken ct = default)
