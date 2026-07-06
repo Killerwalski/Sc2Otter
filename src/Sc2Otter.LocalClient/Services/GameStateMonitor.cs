@@ -104,10 +104,10 @@ public class GameStateMonitor : BackgroundService
         }
         else if (newState is Sc2GameState.LoadingScreen or Sc2GameState.InGame)
         {
-            var myName = settings.Current.MySc2Name;
+            var myNames = (settings.Current.MySc2Name ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(n => n.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var currentHumanPlayers = (gameInfo?.Players ?? [])
                 .Where(p => !p.Type.Equals("computer", StringComparison.OrdinalIgnoreCase))
-                .Where(p => string.IsNullOrWhiteSpace(myName) || !p.Name.Equals(myName, StringComparison.OrdinalIgnoreCase))
+                .Where(p => myNames.Count == 0 || !myNames.Contains(p.Name))
                 .Select(p => p.Name)
                 .Where(n => !string.IsNullOrWhiteSpace(n))
                 .ToList();
@@ -244,7 +244,7 @@ public class GameStateMonitor : BackgroundService
             if (isOldCachedGame) return [];
         }
 
-        var myName = settings.Current.MySc2Name;
+        var myNames = (settings.Current.MySc2Name ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(n => n.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         // Identify opponents (players who are not "me")
         var allHumanPlayers = (gameInfo.Players ?? [])
@@ -252,7 +252,7 @@ public class GameStateMonitor : BackgroundService
             .ToList();
             
         var humanPlayers = allHumanPlayers
-            .Where(p => string.IsNullOrWhiteSpace(myName) || !p.Name.Equals(myName, StringComparison.OrdinalIgnoreCase))
+            .Where(p => myNames.Count == 0 || !myNames.Contains(p.Name))
             .ToList();
 
         if (humanPlayers.Count == 0) return [];
