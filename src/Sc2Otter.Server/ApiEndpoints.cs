@@ -45,8 +45,15 @@ public static class ApiEndpoints
 
         group.MapGet("/get-or-create", async (string name, string? race, IOpponentRepository repo, CancellationToken ct) =>
         {
-            var opp = await repo.GetOrCreateAsync(name, race, null, ct);
-            return Results.Ok(opp);
+            try
+            {
+                var opp = await repo.GetOrCreateAsync(name, race, null, ct);
+                return Results.Ok(opp);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(ex.ToString());
+            }
         });
 
         group.MapGet("/{id}", async (int id, IOpponentRepository repo, CancellationToken ct) =>
@@ -76,8 +83,15 @@ public static class ApiEndpoints
 
         group.MapGet("/recent", async (int? count, IOpponentRepository repo, CancellationToken ct) =>
         {
-            var results = await repo.GetRecentAsync(count ?? 10, ct);
-            return Results.Ok(results);
+            try
+            {
+                var results = await repo.GetRecentAsync(count ?? 10, ct);
+                return Results.Ok(results);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(ex.ToString());
+            }
         });
 
         group.MapPost("/{id}/notes", async (int id, [FromBody] AddNoteRequest req, IOpponentRepository repo, CancellationToken ct) =>
