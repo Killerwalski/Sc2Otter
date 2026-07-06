@@ -210,6 +210,32 @@ def analyze_replay(replay_path, my_name=None):
                     player_result["tags"].append("Mech")
                 elif bio_units > (factory_units * 2) and bio_units > 15:
                     player_result["tags"].append("Bio player")
+                    
+            # 5. Mass Unit Tags
+            units = player_result["unitsMade"]
+            # Zerg
+            if units.get('Queen', 0) >= 8: player_result["tags"].append("Mass Queen")
+            if units.get('Ravager', 0) >= 12: player_result["tags"].append("Mass Ravager")
+            if units.get('LurkerMP', 0) + units.get('Lurker', 0) >= 6: player_result["tags"].append("Mass Lurker")
+            if units.get('SwarmHostMP', 0) + units.get('SwarmHost', 0) >= 8: player_result["tags"].append("Mass Swarm Host")
+            if units.get('Infestor', 0) >= 6: player_result["tags"].append("Mass Infestor")
+            if units.get('Ultralisk', 0) >= 5: player_result["tags"].append("Mass Ultralisk")
+            
+            # Protoss
+            if units.get('Adept', 0) >= 8: player_result["tags"].append("Mass Adept")
+            if units.get('VoidRay', 0) >= 6: player_result["tags"].append("Mass Void Ray")
+            if units.get('Oracle', 0) >= 5: player_result["tags"].append("Mass Oracle")
+            if units.get('Carrier', 0) >= 5: player_result["tags"].append("Mass Carrier")
+            if units.get('Tempest', 0) >= 6: player_result["tags"].append("Mass Tempest")
+            if units.get('Archon', 0) >= 10: player_result["tags"].append("Mass Archon")
+            
+            # Terran
+            if units.get('Hellion', 0) + units.get('Hellbat', 0) >= 12: player_result["tags"].append("Mass Hellion")
+            if units.get('WidowMine', 0) >= 8: player_result["tags"].append("Mass Widow Mine")
+            if units.get('Cyclone', 0) >= 8: player_result["tags"].append("Mass Cyclone")
+            if units.get('Liberator', 0) >= 5: player_result["tags"].append("Mass Liberator")
+            if units.get('Banshee', 0) >= 5: player_result["tags"].append("Mass Banshee")
+            if units.get('Ghost', 0) >= 8: player_result["tags"].append("Mass Ghost")
                                     
             results.append(player_result)
             
