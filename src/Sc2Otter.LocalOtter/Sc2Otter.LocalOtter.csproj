@@ -22,7 +22,7 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>sc2otter</ToolCommandName>
     <PackageOutputPath>./nupkg</PackageOutputPath>
-    <PackageId>Sc2Otter.LocalClient</PackageId>
+    <PackageId>Sc2Otter.LocalOtter</PackageId>
     <Version>1.1.5</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <IsPackable>true</IsPackable>
