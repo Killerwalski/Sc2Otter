@@ -122,6 +122,10 @@ public class ReplayAnalysisService
                 }
 
                 var myResult = result.Data.FirstOrDefault(p => namesToIgnore.Contains(p.Name));
+                if (myResult != null)
+                {
+                    myResult.IsMe = true;
+                }
 
                 foreach (var playerResult in result.Data)
                 {
@@ -222,6 +226,7 @@ public class ReplayAnalysisService
         public string Race { get; set; } = "";
         public string? Result { get; set; }
         public int TeamId { get; set; }
+        public bool IsMe { get; set; }
         public List<string> Tags { get; set; } = [];
         public List<string> Notes { get; set; } = [];
         public Dictionary<string, int>? UnitsMade { get; set; }

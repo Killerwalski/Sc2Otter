@@ -47,7 +47,7 @@ else
     @if (AllPlayers != null && AllPlayers.Count > 0)
     {
         var myNames = GetMyNames();
-        var friendlyPlayer = AllPlayers.FirstOrDefault(p => myNames.Contains(p.Name));
+        var friendlyPlayer = AllPlayers.FirstOrDefault(p => p.IsMe) ?? AllPlayers.FirstOrDefault(p => myNames.Contains(p.Name));
         
         List<PlayerAnalysisResult> friendlyTeam = [];
         List<PlayerAnalysisResult> enemyTeam = [];
@@ -79,14 +79,37 @@ else
             {
                 if (oppPlayer.TeamId != 0)
                 {
-                    enemyTeam = AllPlayers.Where(p => p.TeamId == oppPlayer.TeamId).ToList();
-                    friendlyTeam = AllPlayers.Where(p => p.TeamId != oppPlayer.TeamId).ToList();
+                    // If we lost to this opponent (or they are our ally and we "lost" in the DB perspective),
+                    // then their result is whatever Match.Result says.
+                    // Wait, a much easier fallback for existing records: 
+                    // Match.Result == Win means the OPPONENT LOST. So the opponent is on the losing team.
+                    // If we won, we are on the winning team.
+                    var oppTeam = AllPlayers.Where(p => p.TeamId == oppPlayer.TeamId).ToList();
+                    var otherTeam = AllPlayers.Where(p => p.TeamId != oppPlayer.TeamId).ToList();
+                    
+                    bool opponentWon = (Match.Result == MatchResult.Loss);
+                    if (opponentWon)
+                    {
+                        // Opponent won, so we lost. Our team is the other team.
+                        enemyTeam = oppTeam;
+                        friendlyTeam = otherTeam;
+                    }
+                    else
+                    {
+                        // Opponent lost, so we won. Our team is the other team.
+                        enemyTeam = oppTeam;
+                        friendlyTeam = otherTeam;
+                    }
                 }
                 else if (AllPlayers.Any(p => p.Result == "Win" || p.Result == "Loss"))
                 {
                     var oppResult = oppPlayer.Result ?? "Loss";
-                    enemyTeam = AllPlayers.Where(p => p.Result == oppResult).ToList();
-                    friendlyTeam = AllPlayers.Where(p => p.Result != oppResult).ToList();
+                    var oppTeam = AllPlayers.Where(p => p.Result == oppResult).ToList();
+                    var otherTeam = AllPlayers.Where(p => p.Result != oppResult).ToList();
+                    
+                    bool opponentWon = (Match.Result == MatchResult.Loss);
+                    enemyTeam = oppTeam;
+                    friendlyTeam = otherTeam;
                 }
                 else
                 {
@@ -496,6 +519,7 @@ else
         public string Race { get; set; } = "";
         public string? Result { get; set; }
         public int TeamId { get; set; }
+        public bool IsMe { get; set; }
         public Dictionary<string, int>? UnitsMade { get; set; }
         public PlayerStatsResult? Stats { get; set; }
     }

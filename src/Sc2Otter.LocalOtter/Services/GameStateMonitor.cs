@@ -392,13 +392,21 @@ public class GameStateMonitor : BackgroundService
         {
             try
             {
-                await Task.Delay(3000, ct); // Wait 3 seconds
-                var replayPath = TryGetLatestReplayPath();
-                if (replayPath != null)
+                // Retry finding the replay up to 5 times (15 seconds total)
+                for (int i = 0; i < 5; i++)
                 {
-                    using var analysisScope = scopeFactory.CreateScope();
-                    var analyzer = analysisScope.ServiceProvider.GetRequiredService<ReplayAnalysisService>();
-                    await analyzer.AnalyzeReplayAsync(replayPath, ct);
+                    await Task.Delay(3000, ct); 
+                    var replayPath = TryGetLatestReplayPath();
+                    if (replayPath != null)
+                    {
+                        using var analysisScope = scopeFactory.CreateScope();
+                        var analyzer = analysisScope.ServiceProvider.GetRequiredService<ReplayAnalysisService>();
+                        var success = await analyzer.AnalyzeReplayAsync(replayPath, ct);
+                        
+                        // If it successfully ran the python script, we can stop retrying.
+                        // If it failed (e.g. file locked), we'll loop and try again in 3s.
+                        if (success) break;
+                    }
                 }
             }
             catch (Exception ex)
@@ -412,6 +420,19 @@ public class GameStateMonitor : BackgroundService
     {
         try
         {
+            var customDir = settings.Current.ReplayDirectory;
+            if (!string.IsNullOrWhiteSpace(customDir) && Directory.Exists(customDir))
+            {
+                var recent = new DirectoryInfo(customDir).GetFiles("*.SC2Replay", SearchOption.AllDirectories)
+                    .OrderByDescending(f => f.LastWriteTimeUtc)
+                    .FirstOrDefault();
+                    
+                if (recent != null && (DateTime.UtcNow - recent.LastWriteTimeUtc).TotalMinutes < 15)
+                {
+                    return recent.FullName;
+                }
+            }
+
             var sc2Docs = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "StarCraft II", "Accounts");
             if (!Directory.Exists(sc2Docs)) return null;
 
