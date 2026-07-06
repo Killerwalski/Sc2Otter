@@ -18,7 +18,13 @@ public class HttpOpponentRepository(HttpClient http) : IOpponentRepository
 
     public async Task<Opponent> GetOrCreateAsync(string name, string? race, DateTime? seenAt = null, CancellationToken ct = default)
     {
-        var response = await http.GetAsync($"/api/opponents/get-or-create?name={Uri.EscapeDataString(name)}&race={Uri.EscapeDataString(race ?? "")}", ct);
+        var url = $"/api/opponents/get-or-create?name={Uri.EscapeDataString(name)}&race={Uri.EscapeDataString(race ?? "")}";
+        if (seenAt.HasValue)
+        {
+            var utcTime = seenAt.Value.Kind == DateTimeKind.Utc ? seenAt.Value : DateTime.SpecifyKind(seenAt.Value, DateTimeKind.Utc);
+            url += $"&seenAt={Uri.EscapeDataString(utcTime.ToString("o"))}";
+        }
+        var response = await http.GetAsync(url, ct);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<Opponent>(cancellationToken: ct) ?? throw new Exception("Failed to deserialize");
     }

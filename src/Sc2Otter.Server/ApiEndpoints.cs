@@ -43,11 +43,15 @@ public static class ApiEndpoints
             return Results.Unauthorized();
         });
 
-        group.MapGet("/get-or-create", async (string name, string? race, IOpponentRepository repo, CancellationToken ct) =>
+        group.MapGet("/get-or-create", async (string name, string? race, DateTime? seenAt, IOpponentRepository repo, CancellationToken ct) =>
         {
             try
             {
-                var opp = await repo.GetOrCreateAsync(name, race, null, ct);
+                if (seenAt.HasValue && seenAt.Value.Kind == DateTimeKind.Unspecified)
+                {
+                    seenAt = DateTime.SpecifyKind(seenAt.Value, DateTimeKind.Utc);
+                }
+                var opp = await repo.GetOrCreateAsync(name, race, seenAt, ct);
                 return Results.Ok(opp);
             }
             catch (Exception ex)
