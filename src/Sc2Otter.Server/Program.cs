@@ -140,22 +140,37 @@ using (var scope = app.Services.CreateScope())
     
     using (var command = connection.CreateCommand())
     {
-        command.CommandText = "SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename  = 'Users');";
+        command.CommandText = "SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename ILIKE 'users');";
         var usersExists = (bool)(await command.ExecuteScalarAsync() ?? false);
         
-        command.CommandText = "SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename  = '__EFMigrationsHistory');";
-        var historyExists = (bool)(await command.ExecuteScalarAsync() ?? false);
+        command.CommandText = "SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = '__EFMigrationsHistory');";
+        var historyTableExists = (bool)(await command.ExecuteScalarAsync() ?? false);
         
-        if (usersExists && !historyExists)
+        bool initialMigrationExists = false;
+        if (historyTableExists)
+        {
+            command.CommandText = "SELECT EXISTS (SELECT 1 FROM \"__EFMigrationsHistory\" WHERE \"MigrationId\" = '20260706012723_InitialPostgres');";
+            initialMigrationExists = (bool)(await command.ExecuteScalarAsync() ?? false);
+        }
+        
+        if (usersExists && !initialMigrationExists)
         {
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-            logger.LogInformation("Transitioning from EnsureCreated to Migrations. Creating __EFMigrationsHistory and faking InitialPostgres.");
+            logger.LogInformation("Transitioning from EnsureCreated to Migrations. Faking InitialPostgres.");
+            
+            if (!historyTableExists)
+            {
+                command.CommandText = @"
+                    CREATE TABLE ""__EFMigrationsHistory"" (
+                        ""MigrationId"" character varying(150) NOT NULL,
+                        ""ProductVersion"" character varying(32) NOT NULL,
+                        CONSTRAINT ""PK___EFMigrationsHistory"" PRIMARY KEY (""MigrationId"")
+                    );
+                ";
+                await command.ExecuteNonQueryAsync();
+            }
+            
             command.CommandText = @"
-                CREATE TABLE ""__EFMigrationsHistory"" (
-                    ""MigrationId"" character varying(150) NOT NULL,
-                    ""ProductVersion"" character varying(32) NOT NULL,
-                    CONSTRAINT ""PK___EFMigrationsHistory"" PRIMARY KEY (""MigrationId"")
-                );
                 INSERT INTO ""__EFMigrationsHistory"" (""MigrationId"", ""ProductVersion"")
                 VALUES ('20260706012723_InitialPostgres', '10.0.9');
             ";
