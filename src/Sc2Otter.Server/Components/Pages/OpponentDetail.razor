@@ -46,7 +46,7 @@ else
     <div class="detail-sections">
         <div class="detail-section">
             <div class="detail-section-title">Tags</div>
-            <TagSelector OpponentId="@Opponent.Id"
+            <TagSelector Opponent="@Opponent"
                          SelectedTags="@SelectedTags"
                          OnTagAdded="HandleTagAdded"
                          OnTagRemoved="HandleTagRemoved" />
