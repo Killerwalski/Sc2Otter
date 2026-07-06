@@ -22,6 +22,7 @@ def analyze_replay(replay_path, my_name=None):
                 "name": player.name,
                 "race": player.play_race,
                 "result": player.result,
+                "teamId": getattr(player, 'team_id', 0),
                 "tags": [],
                 "notes": [],
                 "unitsMade": {},

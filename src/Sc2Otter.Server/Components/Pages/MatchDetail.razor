@@ -48,10 +48,70 @@ else
     {
         var myNames = GetMyNames();
         var friendlyPlayer = AllPlayers.FirstOrDefault(p => myNames.Contains(p.Name));
-        var friendlyResult = friendlyPlayer?.Result ?? "Win"; // Default to grouping by Win if we can't find friendly
         
-        var friendlyTeam = AllPlayers.Where(p => p.Result == friendlyResult).ToList();
-        var enemyTeam = AllPlayers.Where(p => p.Result != friendlyResult).ToList();
+        List<PlayerAnalysisResult> friendlyTeam = [];
+        List<PlayerAnalysisResult> enemyTeam = [];
+        
+        if (friendlyPlayer != null)
+        {
+            if (friendlyPlayer.TeamId != 0)
+            {
+                friendlyTeam = AllPlayers.Where(p => p.TeamId == friendlyPlayer.TeamId).ToList();
+                enemyTeam = AllPlayers.Where(p => p.TeamId != friendlyPlayer.TeamId).ToList();
+            }
+            else if (AllPlayers.Any(p => p.Result == "Win" || p.Result == "Loss"))
+            {
+                var friendlyResult = friendlyPlayer.Result ?? "Win";
+                friendlyTeam = AllPlayers.Where(p => p.Result == friendlyResult).ToList();
+                enemyTeam = AllPlayers.Where(p => p.Result != friendlyResult).ToList();
+            }
+            else
+            {
+                var half = AllPlayers.Count / 2;
+                friendlyTeam = AllPlayers.Take(half).ToList();
+                enemyTeam = AllPlayers.Skip(half).ToList();
+            }
+        }
+        else
+        {
+            var oppPlayer = AllPlayers.FirstOrDefault(p => string.Equals(p.Name, Match.Opponent.Name, StringComparison.OrdinalIgnoreCase));
+            if (oppPlayer != null)
+            {
+                if (oppPlayer.TeamId != 0)
+                {
+                    enemyTeam = AllPlayers.Where(p => p.TeamId == oppPlayer.TeamId).ToList();
+                    friendlyTeam = AllPlayers.Where(p => p.TeamId != oppPlayer.TeamId).ToList();
+                }
+                else if (AllPlayers.Any(p => p.Result == "Win" || p.Result == "Loss"))
+                {
+                    var oppResult = oppPlayer.Result ?? "Loss";
+                    enemyTeam = AllPlayers.Where(p => p.Result == oppResult).ToList();
+                    friendlyTeam = AllPlayers.Where(p => p.Result != oppResult).ToList();
+                }
+                else
+                {
+                    // Fallback if no result or team ID is known
+                    var half = AllPlayers.Count / 2;
+                    enemyTeam = AllPlayers.Take(half).ToList();
+                    if (enemyTeam.Contains(oppPlayer))
+                    {
+                        friendlyTeam = AllPlayers.Skip(half).ToList();
+                    }
+                    else
+                    {
+                        friendlyTeam = enemyTeam;
+                        enemyTeam = AllPlayers.Skip(half).ToList();
+                    }
+                }
+            }
+            else
+            {
+                // Fallback: split in half
+                var half = AllPlayers.Count / 2;
+                friendlyTeam = AllPlayers.Take(half).ToList();
+                enemyTeam = AllPlayers.Skip(half).ToList();
+            }
+        }
 
         <div class="card match-stats-card" style="margin-top: 24px;">
             @if (friendlyTeam.Count == 1 && enemyTeam.Count == 1)
@@ -399,6 +459,7 @@ else
         public string Name { get; set; } = "";
         public string Race { get; set; } = "";
         public string? Result { get; set; }
+        public int TeamId { get; set; }
         public Dictionary<string, int>? UnitsMade { get; set; }
         public PlayerStatsResult? Stats { get; set; }
     }

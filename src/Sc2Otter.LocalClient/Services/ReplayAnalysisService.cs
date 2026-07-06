@@ -203,6 +203,7 @@ public class ReplayAnalysisService
         public string Name { get; set; } = "";
         public string Race { get; set; } = "";
         public string? Result { get; set; }
+        public int TeamId { get; set; }
         public List<string> Tags { get; set; } = [];
         public List<string> Notes { get; set; } = [];
         public Dictionary<string, int>? UnitsMade { get; set; }
