@@ -25,6 +25,11 @@ if (!string.IsNullOrEmpty(databaseUrl))
     connectionString = $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={userInfo[1]};Ssl Mode=Require;Trust Server Certificate=true;";
 }
 
+if (string.IsNullOrEmpty(connectionString))
+{
+    throw new InvalidOperationException("CRITICAL ERROR: No database connection string was found. Please ensure you added the DATABASE_URL Reference Variable in your Railway project settings!");
+}
+
 builder.Services.AddDbContext<ScoutDbContext>(options =>
 {
     options.UseNpgsql(connectionString);
