@@ -10,32 +10,32 @@
     
     <h3 style="color: var(--accent-primary); margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Macro & Economy Tags</h3>
     <div class="rules-grid">
-        <RuleRow Tag="Hatchery First" Description="Zerg only. Built a Hatchery before a Spawning Pool." />
-        <RuleRow Tag="Nexus First" Description="Protoss only. Built a Nexus before a Gateway or Forge." />
-        <RuleRow Tag="CC First" Description="Terran only. Built a Command Center before a Barracks." />
-        <RuleRow Tag="One baser" Description="Player did not start an expansion (Hatchery/Nexus/CC) within the first 3 minutes and 45 seconds of the game." />
+        @RuleRow("Hatchery First", "Zerg only. Built a Hatchery before a Spawning Pool.")
+        @RuleRow("Nexus First", "Protoss only. Built a Nexus before a Gateway or Forge.")
+        @RuleRow("CC First", "Terran only. Built a Command Center before a Barracks.")
+        @RuleRow("One baser", "Player did not start an expansion (Hatchery/Nexus/CC) within the first 3 minutes and 45 seconds of the game.")
     </div>
 
     <h3 style="color: var(--accent-secondary); margin-top: 40px; margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Cheese & Aggression Tags</h3>
     <div class="rules-grid">
-        <RuleRow Tag="Cheese" Description="Automatically applied if any of the following are detected: Fast Pool, Cannon Rush, or any Proxy building." />
-        <RuleRow Tag="Fast Pool" Description="Zerg only. Spawning pool was started before 1:10 (typically indicates a 14 pool or earlier)." />
-        <RuleRow Tag="Cannon Rusher" Description="Protoss only. Built a Photon Cannon far away from their starting base (distance > 55) before the 6 minute mark." />
-        <RuleRow Tag="Proxy [Building]" Description="Built a production structure (Barracks, Gateway, Factory, Starport, Robotics Facility, Stargate, Forge) far away from their starting base (distance > 55) before the 6 minute mark." />
+        @RuleRow("Cheese", "Automatically applied if any of the following are detected: Fast Pool, Cannon Rush, or any Proxy building.")
+        @RuleRow("Fast Pool", "Zerg only. Spawning pool was started before 1:10 (typically indicates a 14 pool or earlier).")
+        @RuleRow("Cannon Rusher", "Protoss only. Built a Photon Cannon far away from their starting base (distance > 55) before the 6 minute mark.")
+        @RuleRow("Proxy [Building]", "Built a production structure (Barracks, Gateway, Factory, Starport, Robotics Facility, Stargate, Forge) far away from their starting base (distance > 55) before the 6 minute mark.")
     </div>
 
     <h3 style="color: #64b5f6; margin-top: 40px; margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Unit Composition & Tech Tags</h3>
     <div class="rules-grid">
-        <RuleRow Tag="Random" Description="Player queued as Random race." />
-        <RuleRow Tag="Bio player" Description="Terran only. Built more than 15 bio units (Marine/Marauder), and bio units outnumber factory units 2-to-1." />
-        <RuleRow Tag="Mech" Description="Terran only. Built more than 10 factory units (Hellion, Cyclone, Tank, Thor, Mine), and factory units outnumber bio units by at least 5." />
-        <RuleRow Tag="Mutas" Description="Zerg only. Built more than 8 Mutalisks." />
-        <RuleRow Tag="Multi reaper" Description="Terran only. Built more than 1 Reaper." />
-        <RuleRow Tag="Battlecruiser" Description="Terran only. Built more than 1 Battlecruiser." />
-        <RuleRow Tag="Fast BCs" Description="Terran only. First Battlecruiser was produced before the 7 minute mark." />
-        <RuleRow Tag="Fast DTs" Description="Protoss only. Dark Shrine was started before the 7 minute mark." />
-        <RuleRow Tag="Warp prism" Description="Protoss only. Built at least one Warp Prism." />
-        <RuleRow Tag="Nydus Network" Description="Zerg only. Built a Nydus Network." />
+        @RuleRow("Random", "Player queued as Random race.")
+        @RuleRow("Bio player", "Terran only. Built more than 15 bio units (Marine/Marauder), and bio units outnumber factory units 2-to-1.")
+        @RuleRow("Mech", "Terran only. Built more than 10 factory units (Hellion, Cyclone, Tank, Thor, Mine), and factory units outnumber bio units by at least 5.")
+        @RuleRow("Mutas", "Zerg only. Built more than 8 Mutalisks.")
+        @RuleRow("Multi reaper", "Terran only. Built more than 1 Reaper.")
+        @RuleRow("Battlecruiser", "Terran only. Built more than 1 Battlecruiser.")
+        @RuleRow("Fast BCs", "Terran only. First Battlecruiser was produced before the 7 minute mark.")
+        @RuleRow("Fast DTs", "Protoss only. Dark Shrine was started before the 7 minute mark.")
+        @RuleRow("Warp prism", "Protoss only. Built at least one Warp Prism.")
+        @RuleRow("Nydus Network", "Zerg only. Built a Nydus Network.")
     </div>
 </div>
 
