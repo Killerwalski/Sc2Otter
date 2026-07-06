@@ -2,7 +2,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /source
 
 # Copy solution and project files
-COPY *.sln .
+COPY *.slnx .
 COPY src/Sc2Otter.Server/*.csproj ./src/Sc2Otter.Server/
 COPY src/Sc2Otter.Core/*.csproj ./src/Sc2Otter.Core/
 COPY src/Sc2Otter.Data/*.csproj ./src/Sc2Otter.Data/
