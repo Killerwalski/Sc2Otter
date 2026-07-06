@@ -132,6 +132,12 @@ public static class ApiEndpoints
         {
             try
             {
+                if (req.PlayedAt.HasValue && req.PlayedAt.Value.Kind != DateTimeKind.Utc)
+                {
+                    req.PlayedAt = req.PlayedAt.Value.Kind == DateTimeKind.Local 
+                        ? req.PlayedAt.Value.ToUniversalTime() 
+                        : DateTime.SpecifyKind(req.PlayedAt.Value, DateTimeKind.Utc);
+                }
                 var match = await repo.RecordMatchAsync(id, req, ct);
                 return Results.Ok(match);
             }
