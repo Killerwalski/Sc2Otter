@@ -141,7 +141,7 @@
         var userIdStr = authState.User.FindFirst("Sc2OtterUserId")?.Value;
         if (int.TryParse(userIdStr, out var userId))
         {
-            var user = await DbContext.Users.FindAsync(userId);
+            var user = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(DbContext.Users.AsNoTracking(), u => u.Id == userId);
             if (user != null)
             {
                 SyncKey = user.SyncKey;

@@ -184,10 +184,10 @@ def analyze_replay(replay_path, my_name=None):
                         player_result["notes"].append(f"Built Command Center before Barracks ({first_exp_time//60}:{first_exp_time%60:02d})")
                         
             # 3b. One Baser Detection
-            if first_exp_time > 225:
+            if first_exp_time > 240:
                 if "One baser" not in player_result["tags"]:
                     player_result["tags"].append("One baser")
-                    player_result["notes"].append("Did not build an expansion before 3:45")
+                    player_result["notes"].append("Did not build an expansion before 4:00")
                         
             # 4. Unit Composition / Other Tags
             if mutalisk_count > 8:
