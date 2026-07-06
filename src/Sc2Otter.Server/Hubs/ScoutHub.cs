@@ -147,6 +147,13 @@ public class ScoutHub(IServiceScopeFactory scopeFactory, ILogger<ScoutHub> logge
         var userId = await GetUserIdAsync();
         if (userId.HasValue) await Clients.OthersInGroup($"User_{userId.Value}").SendAsync("ActivateNoteInput");
     }
+    
+    public async Task TriggerBulkImport()
+    {
+        var userId = await GetUserIdAsync();
+        // Since we are triggering from the Web UI, we don't use OthersInGroup, we use Group so it hits the LocalClients
+        if (userId.HasValue) await Clients.Group($"User_{userId.Value}").SendAsync("StartBulkImport");
+    }
 
     public override async Task OnConnectedAsync()
     {

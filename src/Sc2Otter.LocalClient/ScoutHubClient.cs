@@ -13,11 +13,15 @@ public class ScoutHubClient
     private readonly HubConnection _connection;
     private readonly ILogger<ScoutHubClient> _logger;
 
+    public event Action? OnBulkImportRequested;
+
     public ScoutHubClient(ILogger<ScoutHubClient> logger, SettingsService settings)
     {
         _logger = logger;
+        
+        var serverUrl = settings.Current.ServerUrl.TrimEnd('/');
         _connection = new HubConnectionBuilder()
-            .WithUrl("http://localhost:5177/scouthub", options =>
+            .WithUrl($"{serverUrl}/scouthub", options =>
             {
                 if (!string.IsNullOrEmpty(settings.Current.SyncKey))
                 {
@@ -26,6 +30,12 @@ public class ScoutHubClient
             })
             .WithAutomaticReconnect()
             .Build();
+
+        _connection.On("StartBulkImport", () =>
+        {
+            _logger.LogInformation("Received StartBulkImport signal from ScoutHub");
+            OnBulkImportRequested?.Invoke();
+        });
     }
 
     public async Task StartAsync(CancellationToken ct)

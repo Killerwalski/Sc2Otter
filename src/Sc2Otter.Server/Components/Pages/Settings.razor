@@ -2,11 +2,14 @@
 @rendermode InteractiveServer
 @using Sc2Otter.Server.Services
 @using Sc2Otter.Core.Interfaces
+@using Sc2Otter.Server.Hubs
+@using Microsoft.AspNetCore.SignalR
 @inject SettingsService SettingsService
+@inject ICurrentUserService CurrentUserService
+@inject IHubContext<ScoutHub> HubContext
 @inject IServiceScopeFactory ScopeFactory
 @inject Sc2Otter.Data.ScoutDbContext DbContext
 @inject AuthenticationStateProvider AuthStateProvider
-
 @inject ILogger<Settings> Logger
 @inject IJSRuntime JSRuntime
 
@@ -48,8 +51,27 @@
                         <button class="btn btn-secondary" @onclick="() => ShowSyncKey = !ShowSyncKey">
                             @(ShowSyncKey ? "Hide" : "Reveal")
                         </button>
+                        <button class="btn btn-outline-primary" @onclick="GenerateSyncKey">Generate New Key</button>
                     </div>
                 }
+            </div>
+        </div>
+        <div class="setting-row" style="margin-top: 15px;">
+            <div>
+                <div class="setting-label">Bulk Scan Replays</div>
+                <div class="setting-description">If you have old replays that you want to upload to your new cloud database, you can trigger a bulk import. This will instruct your running Local Client to scan all old .SC2Replay files and process them sequentially in the background.</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <button class="btn btn-warning" style="padding: 6px 12px;" @onclick="TriggerBulkImport" disabled="@_isImporting">
+                    @if (_isImporting)
+                    {
+                        <span>Importing in background...</span>
+                    }
+                    else
+                    {
+                        <span>Trigger Bulk Replay Import</span>
+                    }
+                </button>
             </div>
         </div>
     </div>
@@ -125,18 +147,6 @@
                 <input type="date" class="form-control" style="width: 200px; background: var(--bg-tertiary); color: white; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 4px;" @bind="TempSettings.BulkScanCutoffDate" />
             </div>
         </div>
-        <!-- Bulk scan moved to local client -->
-        <div class="setting-row" style="margin-top: 15px;">
-            <div>
-                <div class="setting-label">Bulk Scan Replays</div>
-                <div class="setting-description">Moved to Local Client.</div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <button class="btn btn-secondary" style="padding: 6px 12px;" disabled>
-                    Not Available in Cloud
-                </button>
-            </div>
-        </div>
     </div>
 
     <div class="settings-section">
@@ -184,6 +194,7 @@
     private bool IsWiping = false;
     private string SyncKey = "";
     private bool ShowSyncKey = false;
+    private bool _isImporting = false;
 
     private string WipeMessage = "";
 
@@ -200,6 +211,39 @@
             {
                 SyncKey = user.SyncKey;
             }
+        }
+    }
+
+    private async Task GenerateSyncKey()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userIdStr = authState.User.FindFirst("Sc2OtterUserId")?.Value;
+        if (int.TryParse(userIdStr, out var userId))
+        {
+            var user = await DbContext.Users.FindAsync(userId);
+            if (user != null)
+            {
+                SyncKey = Guid.NewGuid().ToString("N");
+                user.SyncKey = SyncKey;
+                await DbContext.SaveChangesAsync();
+            }
+        }
+    }
+
+    private async Task TriggerBulkImport()
+    {
+        var userId = CurrentUserService.UserId;
+        if (userId != null)
+        {
+            _isImporting = true;
+            await HubContext.Clients.Group($"User_{userId}").SendAsync("StartBulkImport");
+            
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(3000);
+                _isImporting = false;
+                await InvokeAsync(StateHasChanged);
+            });
         }
     }
 

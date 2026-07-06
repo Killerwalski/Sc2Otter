@@ -20,7 +20,9 @@ builder.Services.AddHttpClient<Sc2PulseClient>();
 builder.Services.AddHttpClient<IOpponentRepository, HttpOpponentRepository>((sp, client) =>
 {
     var settings = sp.GetRequiredService<SettingsService>();
-    client.BaseAddress = new Uri("http://localhost:5177");
+    var serverUrl = settings.Current.ServerUrl.TrimEnd('/');
+    client.BaseAddress = new Uri(serverUrl);
+    
     if (!string.IsNullOrEmpty(settings.Current.SyncKey))
     {
         client.DefaultRequestHeaders.Add("X-Sync-Key", settings.Current.SyncKey);
@@ -38,6 +40,7 @@ builder.Services.AddHostedService(sp =>
 
 builder.Services.AddHostedService<GameStateMonitor>();
 builder.Services.AddHostedService<HotkeyService>();
+builder.Services.AddHostedService<BulkReplayScannerService>();
 
 var host = builder.Build();
 host.Run();
