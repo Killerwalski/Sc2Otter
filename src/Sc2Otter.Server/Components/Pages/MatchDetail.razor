@@ -131,7 +131,14 @@ else
                     </div>
 
                     <div class="stats-column opponent">
-                        <h3>@opp.Name</h3>
+                        @if (_playerOpponentIds.TryGetValue(opp.Name, out var oppId))
+                        {
+                            <h3><a href="/opponent/@oppId" style="color: inherit;">@opp.Name</a></h3>
+                        }
+                        else
+                        {
+                            <h3>@opp.Name</h3>
+                        }
                         <div class="stats-race">@opp.Race</div>
                     </div>
                 </div>
@@ -214,7 +221,14 @@ else
                                     var isMe = myNames.Contains(player.Name);
                                     <div class="units-column you" style="flex: 1; min-width: 200px;">
                                         <h4 style="margin-bottom: 12px; color: var(--text-primary);">
-                                            @(isMe ? $"You ({player.Name})" : player.Name) 
+                                            @if (!isMe && _playerOpponentIds.TryGetValue(player.Name, out var fId))
+                                            {
+                                                <a href="/opponent/@fId" style="color: inherit;">@player.Name</a>
+                                            }
+                                            else
+                                            {
+                                                @(isMe ? $"You ({player.Name})" : player.Name)
+                                            }
                                             <span style="color: var(--text-muted); font-size: 12px; margin-left: 8px;">@player.Race</span>
                                         </h4>
                                         
@@ -257,7 +271,14 @@ else
                                 {
                                     <div class="units-column opponent" style="flex: 1; min-width: 200px;">
                                         <h4 style="margin-bottom: 12px; color: var(--text-primary);">
-                                            @player.Name 
+                                            @if (_playerOpponentIds.TryGetValue(player.Name, out var eId))
+                                            {
+                                                <a href="/opponent/@eId" style="color: inherit;">@player.Name</a>
+                                            }
+                                            else
+                                            {
+                                                @player.Name
+                                            }
                                             <span style="color: var(--text-muted); font-size: 12px; margin-left: 8px;">@player.Race</span>
                                         </h4>
 
@@ -303,7 +324,14 @@ else
                                     var isMe = myNames.Contains(player.Name);
                                     <div class="units-column you" style="flex: 1; min-width: 200px;">
                                         <h4 style="margin-bottom: 12px; color: var(--text-primary);">
-                                            @(isMe ? $"You ({player.Name})" : player.Name) 
+                                            @if (!isMe && _playerOpponentIds.TryGetValue(player.Name, out var fId2))
+                                            {
+                                                <a href="/opponent/@fId2" style="color: inherit;">@player.Name</a>
+                                            }
+                                            else
+                                            {
+                                                @(isMe ? $"You ({player.Name})" : player.Name)
+                                            }
                                         </h4>
                                         @if (player.UnitsMade != null && player.UnitsMade.Any())
                                         {
@@ -337,7 +365,14 @@ else
                                 {
                                     <div class="units-column opponent" style="flex: 1; min-width: 200px;">
                                         <h4 style="margin-bottom: 12px; color: var(--text-primary);">
-                                            @player.Name 
+                                            @if (_playerOpponentIds.TryGetValue(player.Name, out var eId2))
+                                            {
+                                                <a href="/opponent/@eId2" style="color: inherit;">@player.Name</a>
+                                            }
+                                            else
+                                            {
+                                                @player.Name
+                                            }
                                         </h4>
                                         @if (player.UnitsMade != null && player.UnitsMade.Any())
                                         {
@@ -377,7 +412,7 @@ else
                 </div>
 
                 <div class="stats-column opponent">
-                    <h3>@Match.Opponent.Name</h3>
+                    <h3><a href="/opponent/@Match.OpponentId" style="color: inherit;">@Match.Opponent.Name</a></h3>
                     <div class="stats-race">@(Match.OpponentRace ?? "Unknown")</div>
                 </div>
             </div>
@@ -453,6 +488,7 @@ else
     private Dictionary<string, int>? MyUnits;
     private Dictionary<string, int>? OpponentUnits;
     private List<PlayerAnalysisResult>? AllPlayers;
+    private Dictionary<string, int> _playerOpponentIds = new();
 
     private class PlayerAnalysisResult
     {
@@ -501,6 +537,18 @@ else
             if (!string.IsNullOrEmpty(Match.OpponentUnitsMade))
             {
                 OpponentUnits = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, int>>(Match.OpponentUnitsMade);
+            }
+            
+            if (AllPlayers != null)
+            {
+                foreach (var player in AllPlayers)
+                {
+                    var opp = await Repo.FindByNameAsync(player.Name);
+                    if (opp != null)
+                    {
+                        _playerOpponentIds[player.Name] = opp.Id;
+                    }
+                }
             }
         }
     }
