@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>dotnet-Sc2Otter.LocalClient-320828d8-7fe7-4658-84b0-f0136b399590</UserSecretsId>
+    <AssemblyName>sc2otter</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
