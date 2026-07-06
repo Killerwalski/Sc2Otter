@@ -17,16 +17,23 @@ public class ScoutHub(IServiceScopeFactory scopeFactory, ILogger<ScoutHub> logge
             return claimId;
         }
 
+        string? syncKey = null;
         if (httpContext.Request.Headers.TryGetValue("X-Sync-Key", out var syncKeyValues))
         {
-            var syncKey = syncKeyValues.FirstOrDefault();
-            if (!string.IsNullOrEmpty(syncKey))
-            {
-                using var scope = scopeFactory.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<Sc2Otter.Data.ScoutDbContext>();
-                var user = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(db.Users, u => u.SyncKey == syncKey);
-                if (user != null) return user.Id;
-            }
+            syncKey = syncKeyValues.FirstOrDefault();
+        }
+        
+        if (string.IsNullOrEmpty(syncKey) && httpContext.Request.Query.TryGetValue("syncKey", out var syncKeyQuery))
+        {
+            syncKey = syncKeyQuery.FirstOrDefault();
+        }
+
+        if (!string.IsNullOrEmpty(syncKey))
+        {
+            using var scope = scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<Sc2Otter.Data.ScoutDbContext>();
+            var user = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(db.Users, u => u.SyncKey == syncKey);
+            if (user != null) return user.Id;
         }
         return null;
     }

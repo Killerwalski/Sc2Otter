@@ -20,14 +20,14 @@ public class ScoutHubClient
         _logger = logger;
         
         var serverUrl = settings.Current.ServerUrl.TrimEnd('/');
+        var url = $"{serverUrl}/scouthub";
+        if (!string.IsNullOrEmpty(settings.Current.SyncKey))
+        {
+            url += $"?syncKey={settings.Current.SyncKey}";
+        }
+
         _connection = new HubConnectionBuilder()
-            .WithUrl($"{serverUrl}/scouthub", options =>
-            {
-                if (!string.IsNullOrEmpty(settings.Current.SyncKey))
-                {
-                    options.Headers.Add("X-Sync-Key", settings.Current.SyncKey);
-                }
-            })
+            .WithUrl(url)
             .WithAutomaticReconnect()
             .Build();
 
