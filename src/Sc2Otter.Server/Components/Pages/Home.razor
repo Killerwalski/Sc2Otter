@@ -218,6 +218,7 @@
         });
 
         await _hubConnection.StartAsync();
+        await _hubConnection.SendAsync("RequestGameStateRefresh");
     }
 
     private string GetStatusText() => CurrentState switch

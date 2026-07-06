@@ -6,22 +6,42 @@ using Sc2Otter.Core.Interfaces;
 using Sc2Otter.Core.Models;
 using Sc2Otter.LocalClient.Services;
 
-public class GameStateMonitor(
-    ISc2GameClient sc2Client,
-    IServiceScopeFactory scopeFactory,
-    ScoutHubClient hubClient,
-    SettingsService settings,
-    Sc2PulseClient sc2PulseClient,
-    ILogger<GameStateMonitor> logger) : BackgroundService
+public class GameStateMonitor : BackgroundService
 {
+    private readonly ISc2GameClient sc2Client;
+    private readonly IServiceScopeFactory scopeFactory;
+    private readonly ScoutHubClient hubClient;
+    private readonly SettingsService settings;
+    private readonly Sc2PulseClient sc2PulseClient;
+    private readonly ILogger<GameStateMonitor> logger;
+
     private Sc2GameState _currentState = Sc2GameState.WaitingForSc2;
     private readonly HashSet<string> _currentOpponentNames = [];
     private readonly Dictionary<string, int> _currentOpponentIds = new();
     private List<OpponentDetectedEvent> _currentOpponents = [];
     private string? _lastMapName;
+    private bool _forceStatePush = true;
 
     public Sc2GameState CurrentState => _currentState;
     public IReadOnlyList<OpponentDetectedEvent> CurrentOpponents => _currentOpponents;
+
+    public GameStateMonitor(
+        ISc2GameClient sc2Client,
+        IServiceScopeFactory scopeFactory,
+        ScoutHubClient hubClient,
+        SettingsService settings,
+        Sc2PulseClient sc2PulseClient,
+        ILogger<GameStateMonitor> logger)
+    {
+        this.sc2Client = sc2Client;
+        this.scopeFactory = scopeFactory;
+        this.hubClient = hubClient;
+        this.settings = settings;
+        this.sc2PulseClient = sc2PulseClient;
+        this.logger = logger;
+
+        this.hubClient.OnRefreshRequested += () => _forceStatePush = true;
+    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -77,8 +97,9 @@ public class GameStateMonitor(
         var screens = uiState?.ActiveScreens ?? [];
         var newState = DetermineState(screens, gameInfo);
 
-        if (newState != _currentState)
+        if (newState != _currentState || _forceStatePush)
         {
+            _forceStatePush = false;
             await TransitionTo(newState, gameInfo, screens, ct);
         }
         else if (newState is Sc2GameState.LoadingScreen or Sc2GameState.InGame)

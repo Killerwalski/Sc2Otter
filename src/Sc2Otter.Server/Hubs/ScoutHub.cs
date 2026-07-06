@@ -174,6 +174,12 @@ public class ScoutHub(IServiceScopeFactory scopeFactory, ILogger<ScoutHub> logge
         if (userId.HasValue) await Clients.OthersInGroup($"User_{userId.Value}").SendAsync("BulkScanProgress", current, total);
     }
 
+    public async Task RequestGameStateRefresh()
+    {
+        var userId = await GetUserIdAsync();
+        if (userId.HasValue) await Clients.OthersInGroup($"User_{userId.Value}").SendAsync("GameStateRefreshRequested");
+    }
+
     public override async Task OnConnectedAsync()
     {
         var userId = await GetUserIdAsync();

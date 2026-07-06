@@ -14,6 +14,7 @@ public class ScoutHubClient
     private readonly ILogger<ScoutHubClient> _logger;
 
     public event Action? OnBulkImportRequested;
+    public event Action? OnRefreshRequested;
 
     public ScoutHubClient(ILogger<ScoutHubClient> logger, SettingsService settings)
     {
@@ -35,6 +36,11 @@ public class ScoutHubClient
         {
             _logger.LogInformation("Received StartBulkImport signal from ScoutHub");
             OnBulkImportRequested?.Invoke();
+        });
+
+        _connection.On("GameStateRefreshRequested", () =>
+        {
+            OnRefreshRequested?.Invoke();
         });
     }
 
