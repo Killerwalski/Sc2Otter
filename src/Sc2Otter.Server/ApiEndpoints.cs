@@ -126,8 +126,15 @@ public static class ApiEndpoints
 
         group.MapPost("/{id}/matches", async (int id, [FromBody] RecordMatchRequest req, IOpponentRepository repo, CancellationToken ct) =>
         {
-            var match = await repo.RecordMatchAsync(id, req, ct);
-            return Results.Ok(match);
+            try
+            {
+                var match = await repo.RecordMatchAsync(id, req, ct);
+                return Results.Ok(match);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(detail: ex.ToString(), statusCode: 500);
+            }
         });
 
         group.MapGet("/{id}/stats", async (int id, string? raceFilter, IOpponentRepository repo, CancellationToken ct) =>
