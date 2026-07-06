@@ -2,9 +2,10 @@
 @using Sc2Otter.Core.Models
 @using Microsoft.AspNetCore.SignalR.Client
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.Extensions.DependencyInjection
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
-@inject Sc2Otter.Data.ScoutDbContext DbContext
+@inject IServiceScopeFactory ScopeFactory
 @implements IAsyncDisposable
 @rendermode InteractiveServer
 
@@ -26,7 +27,9 @@
         var userIdStr = authState.User.FindFirst("Sc2OtterUserId")?.Value;
         if (int.TryParse(userIdStr, out var userId))
         {
-            var user = await DbContext.Users.FindAsync(userId);
+            using var scope = ScopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<Sc2Otter.Data.ScoutDbContext>();
+            var user = await db.Users.FindAsync(userId);
             if (user != null && !string.IsNullOrEmpty(user.SyncKey))
             {
                 url += $"?syncKey={user.SyncKey}";
