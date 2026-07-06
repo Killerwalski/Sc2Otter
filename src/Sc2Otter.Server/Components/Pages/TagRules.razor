@@ -1,0 +1,90 @@
+@page "/tags"
+@rendermode InteractiveServer
+
+<div class="page-header">
+    <h2>Tag Dictionary & Rules</h2>
+    <p style="color: var(--text-muted);">This dictionary defines the exact conditions under which the Local Client's automated replay analyzer will assign tags to players.</p>
+</div>
+
+<div class="card tag-rules-card" style="margin-top: 24px; padding: 32px;">
+    
+    <h3 style="color: var(--accent-primary); margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Macro & Economy Tags</h3>
+    <div class="rules-grid">
+        <RuleRow Tag="Hatchery First" Description="Zerg only. Built a Hatchery before a Spawning Pool." />
+        <RuleRow Tag="Nexus First" Description="Protoss only. Built a Nexus before a Gateway or Forge." />
+        <RuleRow Tag="CC First" Description="Terran only. Built a Command Center before a Barracks." />
+        <RuleRow Tag="One baser" Description="Player did not start an expansion (Hatchery/Nexus/CC) within the first 3 minutes and 45 seconds of the game." />
+    </div>
+
+    <h3 style="color: var(--accent-secondary); margin-top: 40px; margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Cheese & Aggression Tags</h3>
+    <div class="rules-grid">
+        <RuleRow Tag="Cheese" Description="Automatically applied if any of the following are detected: Fast Pool, Cannon Rush, or any Proxy building." />
+        <RuleRow Tag="Fast Pool" Description="Zerg only. Spawning pool was started before 1:10 (typically indicates a 14 pool or earlier)." />
+        <RuleRow Tag="Cannon Rusher" Description="Protoss only. Built a Photon Cannon far away from their starting base (distance > 55) before the 6 minute mark." />
+        <RuleRow Tag="Proxy [Building]" Description="Built a production structure (Barracks, Gateway, Factory, Starport, Robotics Facility, Stargate, Forge) far away from their starting base (distance > 55) before the 6 minute mark." />
+    </div>
+
+    <h3 style="color: #64b5f6; margin-top: 40px; margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Unit Composition & Tech Tags</h3>
+    <div class="rules-grid">
+        <RuleRow Tag="Random" Description="Player queued as Random race." />
+        <RuleRow Tag="Bio player" Description="Terran only. Built more than 15 bio units (Marine/Marauder), and bio units outnumber factory units 2-to-1." />
+        <RuleRow Tag="Mech" Description="Terran only. Built more than 10 factory units (Hellion, Cyclone, Tank, Thor, Mine), and factory units outnumber bio units by at least 5." />
+        <RuleRow Tag="Mutas" Description="Zerg only. Built more than 8 Mutalisks." />
+        <RuleRow Tag="Multi reaper" Description="Terran only. Built more than 1 Reaper." />
+        <RuleRow Tag="Battlecruiser" Description="Terran only. Built more than 1 Battlecruiser." />
+        <RuleRow Tag="Fast BCs" Description="Terran only. First Battlecruiser was produced before the 7 minute mark." />
+        <RuleRow Tag="Fast DTs" Description="Protoss only. Dark Shrine was started before the 7 minute mark." />
+        <RuleRow Tag="Warp prism" Description="Protoss only. Built at least one Warp Prism." />
+        <RuleRow Tag="Nydus Network" Description="Zerg only. Built a Nydus Network." />
+    </div>
+</div>
+
+<style>
+    .rules-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+    .rule-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 24px;
+        padding: 16px;
+        background-color: var(--surface-0);
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+    }
+    .rule-tag {
+        flex: 0 0 200px;
+    }
+    .rule-tag-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        background-color: var(--surface-1);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 13px;
+        color: var(--text-primary);
+    }
+    .rule-desc {
+        flex: 1;
+        color: var(--text-muted);
+        line-height: 1.5;
+        font-size: 14px;
+    }
+</style>
+
+@code {
+    private RenderFragment RuleRow(string Tag, string Description) => __builder =>
+    {
+        <div class="rule-row">
+            <div class="rule-tag">
+                <span class="rule-tag-badge">@Tag</span>
+            </div>
+            <div class="rule-desc">
+                @Description
+            </div>
+        </div>
+    };
+}
