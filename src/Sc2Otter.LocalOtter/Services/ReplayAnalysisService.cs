@@ -137,7 +137,7 @@ public class ReplayAnalysisService
 
                     var opponent = await repo.GetOrCreateAsync(playerResult.Name, playerResult.Race, result.StartTime, ct);
                     
-                    bool alreadyAnalyzed = await repo.IsMatchAlreadyAnalyzedAsync(opponent.Id, result.StartTime, ct);
+                    bool alreadyAnalyzed = await repo.IsMatchAlreadyAnalyzedAsync(opponent.Id, result.StartTime ?? DateTime.UtcNow, ct);
                     
                     if (!alreadyAnalyzed)
                     {
