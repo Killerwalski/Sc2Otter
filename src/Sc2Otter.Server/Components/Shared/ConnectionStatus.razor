@@ -8,7 +8,7 @@
 
 @code {
     private bool IsConnected { get; set; }
-    private string StatusText => IsConnected ? "SC2 Connected" : "SC2 Offline";
+    private string StatusText => IsConnected ? "Local Client Connected" : "Local Client Offline";
 
     protected override void OnInitialized()
     {
