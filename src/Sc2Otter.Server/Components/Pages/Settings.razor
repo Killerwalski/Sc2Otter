@@ -235,8 +235,9 @@
 
     private async Task TriggerBulkImport()
     {
-        var userId = CurrentUserService.UserId;
-        if (userId != null)
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userIdStr = authState.User.FindFirst("Sc2OtterUserId")?.Value;
+        if (int.TryParse(userIdStr, out var userId))
         {
             _isImporting = true;
             await HubContext.Clients.Group($"User_{userId}").SendAsync("StartBulkImport");
