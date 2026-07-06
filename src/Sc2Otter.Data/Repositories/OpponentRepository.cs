@@ -107,6 +107,12 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
 
     public async Task<OpponentNote> AddNoteAsync(int opponentId, string content, string source = "keyboard", CancellationToken ct = default)
     {
+        var existingNote = await db.Notes.FirstOrDefaultAsync(n => n.OpponentId == opponentId && n.Content == content && n.Source == source, ct);
+        if (existingNote != null)
+        {
+            return existingNote;
+        }
+
         var note = new OpponentNote
         {
             OpponentId = opponentId,
@@ -185,6 +191,63 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
         var opponent = await db.Opponents.FirstOrDefaultAsync(o => o.UserId == UserId && o.Id == opponentId, ct);
         if (opponent is null) throw new KeyNotFoundException($"Opponent {opponentId} not found.");
 
+        var playedAt = req.PlayedAt ?? DateTime.UtcNow;
+
+        var exactDuplicate = req.PlayedAt.HasValue 
+            ? await db.MatchRecords.FirstOrDefaultAsync(m => m.OpponentId == opponentId && m.PlayedAt == req.PlayedAt.Value, ct)
+            : null;
+
+        var existingMatch = exactDuplicate ?? await db.MatchRecords
+            .Where(m => m.OpponentId == opponentId && m.FullMatchData == null)
+            .OrderByDescending(m => m.PlayedAt)
+            .FirstOrDefaultAsync(ct);
+
+        bool isDuplicate = false;
+        if (exactDuplicate != null)
+        {
+            isDuplicate = true;
+            existingMatch = exactDuplicate;
+        }
+        else if (existingMatch != null && req.FullMatchData != null && Math.Abs((playedAt - existingMatch.PlayedAt).TotalMinutes) < 60)
+        {
+            isDuplicate = true;
+        }
+
+        if (isDuplicate && existingMatch != null)
+        {
+            existingMatch.Result = req.Result != MatchResult.Unknown ? req.Result : existingMatch.Result;
+            existingMatch.MapName = req.MapName ?? existingMatch.MapName;
+            existingMatch.MyRace = req.MyRace ?? existingMatch.MyRace;
+            existingMatch.OpponentRace = req.OpponentRace ?? existingMatch.OpponentRace;
+            existingMatch.GameMode = req.GameMode ?? existingMatch.GameMode;
+            if (req.PlayedAt.HasValue) existingMatch.PlayedAt = req.PlayedAt.Value;
+            
+            if (req.FullMatchData != null)
+            {
+                existingMatch.FullMatchData = req.FullMatchData;
+                existingMatch.MyUnitsMade = req.MyUnitsMade;
+                existingMatch.MyWorkersCreated = req.MyWorkersCreated;
+                existingMatch.MySupplyBlockTime = req.MySupplyBlockTime;
+                existingMatch.MyAvgUnspentMinerals = req.MyAvgUnspentMinerals;
+                existingMatch.MyAvgMineralIncome = req.MyAvgMineralIncome;
+                existingMatch.OpponentUnitsMade = req.OpponentUnitsMade;
+                existingMatch.OpponentWorkersCreated = req.OpponentWorkersCreated;
+                existingMatch.OpponentSupplyBlockTime = req.OpponentSupplyBlockTime;
+                existingMatch.OpponentAvgUnspentMinerals = req.OpponentAvgUnspentMinerals;
+                existingMatch.OpponentAvgMineralIncome = req.OpponentAvgMineralIncome;
+            }
+
+            if (existingMatch.PlayedAt > opponent.LastSeen)
+            {
+                opponent.LastSeen = existingMatch.PlayedAt;
+                opponent.Race = req.OpponentRace ?? opponent.Race;
+            }
+            
+            db.MatchRecords.Update(existingMatch);
+            await db.SaveChangesAsync(ct);
+            return existingMatch;
+        }
+
         var match = new MatchRecord
         {
             OpponentId = opponentId,
@@ -193,7 +256,7 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
             MyRace = req.MyRace,
             OpponentRace = req.OpponentRace,
             GameMode = req.GameMode,
-            PlayedAt = req.PlayedAt ?? DateTime.UtcNow,
+            PlayedAt = playedAt,
             FullMatchData = req.FullMatchData,
             MyUnitsMade = req.MyUnitsMade,
             MyWorkersCreated = req.MyWorkersCreated,
@@ -210,9 +273,9 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
 
         db.MatchRecords.Add(match);
 
-        if (req.PlayedAt > opponent.LastSeen)
+        if (playedAt > opponent.LastSeen)
         {
-            opponent.LastSeen = req.PlayedAt ?? DateTime.UtcNow;
+            opponent.LastSeen = playedAt;
             opponent.Race = req.OpponentRace ?? opponent.Race;
         }
         db.Opponents.Update(opponent);
