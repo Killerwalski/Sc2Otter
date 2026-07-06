@@ -8,6 +8,8 @@
 @using Sc2Otter.Server.Services
 @inject NavigationManager Navigation
 @inject IOpponentRepository Repo
+@inject Sc2Otter.Data.ScoutDbContext DbContext
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
 @inject IServiceProvider ServiceProvider
 @implements IAsyncDisposable
 
@@ -166,9 +168,20 @@
     {
         RecentOpponents = await Repo.GetRecentAsync(6);
 
+        var url = Navigation.ToAbsoluteUri("/scouthub").ToString();
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userIdStr = authState.User.FindFirst("Sc2OtterUserId")?.Value;
+        if (int.TryParse(userIdStr, out var userId))
+        {
+            var user = await DbContext.Users.FindAsync(userId);
+            if (user != null && !string.IsNullOrEmpty(user.SyncKey))
+            {
+                url += $"?syncKey={user.SyncKey}";
+            }
+        }
 
         _hubConnection = new HubConnectionBuilder()
-            .WithUrl(Navigation.ToAbsoluteUri("/scouthub"))
+            .WithUrl(url)
             .WithAutomaticReconnect()
             .Build();
 
