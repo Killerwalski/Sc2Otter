@@ -62,7 +62,7 @@
                 @if (LastScanTime.HasValue)
                 {
                     <div class="setting-description" style="color: var(--accent-success); margin-top: 8px;">
-                        Last bulk scan completed at: @LastScanTime.Value.ToLocalTime().ToString("MMM dd, yyyy h:mm tt")
+                        Last bulk scan completed at: <LocalTime UtcTime="LastScanTime.Value" IncludeYear="true" />
                     </div>
                 }
             </div>

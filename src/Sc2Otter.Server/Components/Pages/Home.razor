@@ -83,7 +83,7 @@
                                 <div class="note-item">
                                     <div class="note-content">@note.Content</div>
                                     <div class="note-meta">
-                                        <span>@note.CreatedAt.ToLocalTime().ToString("MMM d, h:mm tt")</span>
+                                        <span><LocalTime UtcTime="note.CreatedAt" IncludeYear="false" /></span>
                                         <span class="note-source">@(note.Source == "voice" ? "🎤" : "⌨️")</span>
                                     </div>
                                 </div>
