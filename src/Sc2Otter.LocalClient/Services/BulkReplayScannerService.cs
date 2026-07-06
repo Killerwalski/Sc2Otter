@@ -64,10 +64,23 @@ public class BulkReplayScannerService : BackgroundService
 
         try
         {
-            var files = Directory.GetFiles(replayDir, "*.SC2Replay", SearchOption.AllDirectories)
-                .Select(f => new FileInfo(f))
-                .OrderBy(f => f.LastWriteTimeUtc)
-                .ToList();
+            var cutoff = _settings.Current.BulkScanCutoffDate;
+
+            var filesQuery = Directory.GetFiles(replayDir, "*.SC2Replay", SearchOption.AllDirectories)
+                .Select(f => new FileInfo(f));
+
+            if (cutoff.HasValue)
+            {
+                filesQuery = filesQuery.Where(f => f.LastWriteTimeUtc > cutoff.Value);
+            }
+            else
+            {
+                // First time import - just grab the most recent 300 replays across all folders
+                // to avoid importing 10 years of history
+                filesQuery = filesQuery.OrderByDescending(f => f.LastWriteTimeUtc).Take(300);
+            }
+            
+            var files = filesQuery.OrderBy(f => f.LastWriteTimeUtc).ToList();
 
             _logger.LogInformation("Found {Count} replays to scan.", files.Count);
 

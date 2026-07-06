@@ -60,6 +60,11 @@ public class ReplayAnalysisService(
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var result = JsonSerializer.Deserialize<ReplayAnalysisResult>(output, options);
 
+            if (result != null && result.StartTime.HasValue && result.StartTime.Value.Kind == DateTimeKind.Unspecified)
+            {
+                result.StartTime = DateTime.SpecifyKind(result.StartTime.Value, DateTimeKind.Utc);
+            }
+
             if (result == null || !result.Success)
             {
                 logger.LogError("Python script returned failure: {Error}", result?.Error);
