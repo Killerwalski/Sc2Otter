@@ -23,6 +23,7 @@ public class UserSettings
 public class SettingsService
 {
     private readonly string _settingsFilePath;
+    private readonly FileSystemWatcher _watcher;
     
     public UserSettings Current { get; private set; } = new();
     public event Action? OnSettingsChanged;
@@ -33,13 +34,32 @@ public class SettingsService
         Directory.CreateDirectory(appData);
         _settingsFilePath = Path.Combine(appData, "user_settings.json");
         Load();
+
+        _watcher = new FileSystemWatcher(appData, "user_settings.json")
+        {
+            NotifyFilter = NotifyFilters.LastWrite
+        };
+        _watcher.Changed += OnFileChanged;
+        _watcher.EnableRaisingEvents = true;
+    }
+
+    private void OnFileChanged(object sender, FileSystemEventArgs e)
+    {
+        // Add a small delay to avoid reading while the file is being written
+        Task.Delay(100).ContinueWith(_ => 
+        {
+            Load();
+            OnSettingsChanged?.Invoke();
+        });
     }
 
     public void Update(UserSettings newSettings)
     {
+        _watcher.EnableRaisingEvents = false;
         Current = newSettings.Clone();
         Save();
         OnSettingsChanged?.Invoke();
+        _watcher.EnableRaisingEvents = true;
     }
 
     private void Load()
@@ -53,7 +73,7 @@ public class SettingsService
             }
             catch
             {
-                Current = new UserSettings();
+                // File might be locked, just keep current settings
             }
         }
     }
