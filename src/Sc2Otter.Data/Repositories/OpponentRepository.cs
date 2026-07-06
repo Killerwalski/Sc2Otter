@@ -186,6 +186,17 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
         return await db.Tags.OrderBy(t => t.Name).ToListAsync(ct);
     }
 
+    public async Task<bool> IsMatchAlreadyAnalyzedAsync(int opponentId, DateTime playedAt, CancellationToken ct = default)
+    {
+        var exactDuplicate = await db.MatchRecords.FirstOrDefaultAsync(m => m.OpponentId == opponentId && m.PlayedAt == playedAt, ct);
+        if (exactDuplicate != null && exactDuplicate.FullMatchData != null) return true;
+        
+        var fuzzy = await db.MatchRecords.FirstOrDefaultAsync(m => m.OpponentId == opponentId && m.FullMatchData != null && Math.Abs((playedAt - m.PlayedAt).TotalMinutes) < 60, ct);
+        if (fuzzy != null) return true;
+        
+        return false;
+    }
+
     public async Task<MatchRecord> RecordMatchAsync(int opponentId, RecordMatchRequest req, CancellationToken ct = default)
     {
         var opponent = await db.Opponents.FirstOrDefaultAsync(o => o.UserId == UserId && o.Id == opponentId, ct);

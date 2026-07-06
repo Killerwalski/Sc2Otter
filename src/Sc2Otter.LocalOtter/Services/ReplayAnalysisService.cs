@@ -137,23 +137,28 @@ public class ReplayAnalysisService
 
                     var opponent = await repo.GetOrCreateAsync(playerResult.Name, playerResult.Race, result.StartTime, ct);
                     
-                    foreach (var tag in playerResult.Tags)
-                    {
-                        await repo.AddTagAsync(opponent.Id, tag, ct);
-                        _logger.LogInformation("Added tag '{Tag}' to {Player}", tag, playerResult.Name);
-                    }
+                    bool alreadyAnalyzed = await repo.IsMatchAlreadyAnalyzedAsync(opponent.Id, result.StartTime, ct);
                     
-                    foreach (var note in playerResult.Notes)
+                    if (!alreadyAnalyzed)
                     {
-                        // Add some context to the note
-                        var fullNote = $"[Auto-Replay] {note}";
-                        await repo.AddNoteAsync(opponent.Id, fullNote, "replay", ct);
-                        _logger.LogInformation("Added note to {Player}: {Note}", playerResult.Name, fullNote);
-                    }
-                    
-                    if (!string.IsNullOrWhiteSpace(result.GameMode))
-                    {
-                        await repo.AddTagAsync(opponent.Id, result.GameMode, ct);
+                        foreach (var tag in playerResult.Tags)
+                        {
+                            await repo.AddTagAsync(opponent.Id, tag, ct);
+                            _logger.LogInformation("Added tag '{Tag}' to {Player}", tag, playerResult.Name);
+                        }
+
+                        foreach (var note in playerResult.Notes)
+                        {
+                            // Add some context to the note
+                            var fullNote = $"[Auto-Replay] {note}";
+                            await repo.AddNoteAsync(opponent.Id, fullNote, "replay", ct);
+                            _logger.LogInformation("Added note to {Player}: {Note}", playerResult.Name, fullNote);
+                        }
+                        
+                        if (!string.IsNullOrWhiteSpace(result.GameMode))
+                        {
+                            await repo.AddTagAsync(opponent.Id, result.GameMode, ct);
+                        }
                     }
                     
                     var ourResult = MatchResult.Unknown;

@@ -291,12 +291,6 @@ public class GameStateMonitor : BackgroundService
 
             var opponent = await repo.GetOrCreateAsync(player.Name, player.Race, seenAt: null, ct: ct);
             newIds[player.Name] = opponent.Id;
-            
-            // Tag game mode
-            if (!string.IsNullOrWhiteSpace(gameMode))
-            {
-                await repo.AddTagAsync(opponent.Id, gameMode, ct);
-            }
 
             // Load full details for display
             var details = await repo.GetWithDetailsAsync(opponent.Id, ct);
