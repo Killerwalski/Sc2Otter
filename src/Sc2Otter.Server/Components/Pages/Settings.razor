@@ -113,6 +113,27 @@
         </div>
     </div>
     
+    <div class="settings-section">
+        <h3>LocalOtter Current Configuration</h3>
+        <p class="setting-description" style="margin-bottom: 15px;">
+            These are the settings currently loaded by your active LocalOtter background process. 
+            <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px; margin-left: 10px;" @onclick="RequestConfig">Refresh Config</button>
+        </p>
+        
+        @if (_localOtterConfig == null)
+        {
+            <div style="color: var(--text-muted); font-style: italic;">Waiting for LocalOtter to report its configuration... (make sure it's running)</div>
+        }
+        else
+        {
+            <div style="background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; padding: 16px;">
+                <pre style="margin: 0; color: var(--text-primary); font-size: 13px; font-family: 'JetBrains Mono', monospace; overflow-x: auto;">
+@GetFormattedConfig()
+                </pre>
+            </div>
+        }
+    </div>
+    
     <div style="margin-top: 30px; display: flex; align-items: center; justify-content: flex-end; gap: 16px;">
         @if (!string.IsNullOrEmpty(WipeMessage))
         {
@@ -132,6 +153,7 @@
     private int _importTotal = 0;
     private HubConnection? _hubConnection;
     private DateTime? LastScanTime = null;
+    private System.Text.Json.JsonElement? _localOtterConfig = null;
 
     private string WipeMessage = "";
 
@@ -167,7 +189,14 @@
                     InvokeAsync(StateHasChanged);
                 });
 
+                _hubConnection.On<System.Text.Json.JsonElement>("ConfigReceived", (config) =>
+                {
+                    _localOtterConfig = config;
+                    InvokeAsync(StateHasChanged);
+                });
+
                 await _hubConnection.StartAsync();
+                await RequestConfig();
             }
         }
     }
@@ -206,7 +235,19 @@
         }
     }
 
+    private async Task RequestConfig()
+    {
+        if (_hubConnection?.State == HubConnectionState.Connected)
+        {
+            await _hubConnection.SendAsync("RequestConfigSync");
+        }
+    }
 
+    private string GetFormattedConfig()
+    {
+        if (_localOtterConfig == null) return "";
+        return System.Text.Json.JsonSerializer.Serialize(_localOtterConfig.Value, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+    }
 
     private async Task WipeDatabase()
     {

@@ -43,6 +43,12 @@ public class ScoutHubClient
         {
             OnRefreshRequested?.Invoke();
         });
+
+        _connection.On("RequestConfigSync", () =>
+        {
+            _logger.LogInformation("Received RequestConfigSync signal from ScoutHub");
+            _connection.InvokeAsync("PushConfig", settings.Current);
+        });
     }
 
     public async Task StartAsync(CancellationToken ct)
