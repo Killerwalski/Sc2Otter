@@ -69,12 +69,19 @@ public class SettingsService
             try
             {
                 var json = File.ReadAllText(_settingsFilePath);
-                Current = JsonSerializer.Deserialize<UserSettings>(json) ?? new UserSettings();
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                Current = JsonSerializer.Deserialize<UserSettings>(json, options) ?? new UserSettings();
+                Console.WriteLine($"[Settings] Loaded settings successfully. MySc2Name: {Current.MySc2Name}");
             }
-            catch
+            catch (Exception ex)
             {
-                // File might be locked, just keep current settings
+                Console.WriteLine($"[Settings] Failed to parse user_settings.json: {ex.Message}");
+                // File might be locked or invalid JSON, keep current settings
             }
+        }
+        else
+        {
+            Console.WriteLine($"[Settings] File not found at {_settingsFilePath}");
         }
     }
 

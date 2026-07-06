@@ -107,7 +107,7 @@ public class GameStateMonitor : BackgroundService
             var myNames = (settings.Current.MySc2Name ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(n => n.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var currentHumanPlayers = (gameInfo?.Players ?? [])
                 .Where(p => !p.Type.Equals("computer", StringComparison.OrdinalIgnoreCase))
-                .Where(p => myNames.Count == 0 || !myNames.Contains(p.Name))
+                .Where(p => myNames.Count == 0 || !myNames.Contains((p.Name ?? "").Trim()))
                 .Select(p => p.Name)
                 .Where(n => !string.IsNullOrWhiteSpace(n))
                 .ToList();
@@ -252,7 +252,7 @@ public class GameStateMonitor : BackgroundService
             .ToList();
             
         var humanPlayers = allHumanPlayers
-            .Where(p => myNames.Count == 0 || !myNames.Contains(p.Name))
+            .Where(p => myNames.Count == 0 || !myNames.Contains((p.Name ?? "").Trim()))
             .ToList();
 
         if (humanPlayers.Count == 0) return [];
