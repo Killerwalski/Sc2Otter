@@ -100,7 +100,7 @@ public static class ApiEndpoints
 
         group.MapPost("/{id}/notes", async (int id, [FromBody] AddNoteRequest req, IOpponentRepository repo, CancellationToken ct) =>
         {
-            var note = await repo.AddNoteAsync(id, req.Content, req.Source ?? "manual", ct);
+            var note = await repo.AddNoteAsync(id, req.Content, req.Source ?? "keyboard", req.MatchRecordId, req.AutoTags, ct);
             return Results.Ok(note);
         });
 

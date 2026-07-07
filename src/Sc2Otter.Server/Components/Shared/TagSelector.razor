@@ -55,9 +55,16 @@
             if (!PlayedRaces.Contains(def.Race)) return false;
         }
         
-        // Proxy tags are generally Terran/Protoss
-        if (tagName.StartsWith("Proxy") && !PlayedRaces.Contains("Terran") && !PlayedRaces.Contains("Protoss")) return false;
-        if (tagName == "Proxy Hatchery" && !PlayedRaces.Contains("Zerg")) return false; // Except proxy hatch
+        if (tagName.StartsWith("Proxy "))
+        {
+            if (tagName == "Proxy Hatchery" && !PlayedRaces.Contains("Zerg")) return false;
+            
+            var protossProxies = new[] { "Proxy Gate", "Proxy Robo", "Proxy Cannon" };
+            if (protossProxies.Contains(tagName) && !PlayedRaces.Contains("Protoss")) return false;
+            
+            var terranProxies = new[] { "Proxy Rax", "Proxy Factory", "Proxy Starport" };
+            if (terranProxies.Contains(tagName) && !PlayedRaces.Contains("Terran")) return false;
+        }
 
         return true;
     }

@@ -3,7 +3,7 @@ namespace Sc2Otter.Core.Models;
 using System;
 using System.Collections.Generic;
 
-public class AddNoteRequest { public string Content { get; set; } = ""; public string? Source { get; set; } }
+public class AddNoteRequest { public string Content { get; set; } = ""; public string? Source { get; set; } public int? MatchRecordId { get; set; } public List<string> AutoTags { get; set; } = new(); }
 public class UpdateNoteRequest { public string Content { get; set; } = ""; }
 public class AddTagRequest { public string TagName { get; set; } = ""; }
 

@@ -80,7 +80,7 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
     public async Task<Opponent?> GetWithDetailsAsync(int id, CancellationToken ct = default)
     {
         return await db.Opponents
-            .Include(o => o.Notes.OrderByDescending(n => n.CreatedAt))
+            .Include(o => o.Notes.OrderByDescending(n => n.CreatedAt)).ThenInclude(n => n.MatchRecord)
             .Include(o => o.MatchRecords.OrderByDescending(m => m.PlayedAt).Take(5))
             .Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag)
             .FirstOrDefaultAsync(o => o.UserId == UserId && o.Id == id, ct);
@@ -135,7 +135,7 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
             .ToListAsync(ct);
     }
 
-    public async Task<OpponentNote> AddNoteAsync(int opponentId, string content, string source = "keyboard", CancellationToken ct = default)
+    public async Task<OpponentNote> AddNoteAsync(int opponentId, string content, string source = "keyboard", int? matchRecordId = null, List<string>? autoTags = null, CancellationToken ct = default)
     {
         var existingNote = await db.Notes.FirstOrDefaultAsync(n => n.OpponentId == opponentId && n.Content == content && n.Source == source, ct);
         if (existingNote != null)

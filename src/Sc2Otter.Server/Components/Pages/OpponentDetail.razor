@@ -86,12 +86,29 @@ else
                                 <div class="note-content">@note.Content</div>
                                 <div class="note-meta">
                                     <span><LocalTime UtcTime="@note.CreatedAt" IncludeYear="true" /></span>
-                                    <span class="note-source">@(note.Source == "voice" ? "🎤 Voice" : "⌨️ Typed")</span>
+                                    <span class="note-source">
+                                        @if (note.Source == "voice") { <text>🎤 Voice</text> }
+                                        else if (note.Source == "replay") { <text>🎮 Auto-Replay</text> }
+                                        else { <text>⌨️ Typed</text> }
+                                    </span>
+                                    @if (note.MatchRecord != null)
+                                    {
+                                        <span class="note-map" style="color: #4ade80;">🗺️ @note.MatchRecord.MapName</span>
+                                    }
                                     @if (note.UpdatedAt.HasValue)
                                     {
                                         <span>(edited)</span>
                                     }
                                 </div>
+                                @if (note.AutoTags.Any())
+                                {
+                                    <div class="note-tags" style="margin-top: 8px; display: flex; gap: 4px; flex-wrap: wrap;">
+                                        @foreach (var tag in note.AutoTags)
+                                        {
+                                            <span class="tag">@tag</span>
+                                        }
+                                    </div>
+                                }
                                 <div class="note-actions">
                                     <button class="btn-icon" title="Edit" @onclick="() => StartEditNote(note.Id, note.Content)">✏️</button>
                                     <button class="btn-icon" title="Delete" @onclick="() => DeleteNote(note.Id)">🗑️</button>

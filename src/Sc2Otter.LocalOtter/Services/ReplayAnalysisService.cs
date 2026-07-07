@@ -147,18 +147,7 @@ public class ReplayAnalysisService
                             _logger.LogInformation("Added tag '{Tag}' to {Player}", tag, playerResult.Name);
                         }
 
-                        foreach (var note in playerResult.Notes)
-                        {
-                            // Add some context to the note
-                            var fullNote = $"[Auto-Replay] {note}";
-                            await repo.AddNoteAsync(opponent.Id, fullNote, "replay", ct);
-                            _logger.LogInformation("Added note to {Player}: {Note}", playerResult.Name, fullNote);
-                        }
-                        
-                        if (!string.IsNullOrWhiteSpace(result.GameMode))
-                        {
-                            await repo.AddTagAsync(opponent.Id, result.GameMode, ct);
-                        }
+                    // Moved up to get matchId
                     }
                     
                     var ourResult = MatchResult.Unknown;
@@ -203,7 +192,23 @@ public class ReplayAnalysisService
                         req.OpponentUnitsMade = JsonSerializer.Serialize(playerResult.UnitsMade);
                     }
 
-                    await repo.RecordMatchAsync(opponent.Id, req, ct);
+                    var matchRecord = await repo.RecordMatchAsync(opponent.Id, req, ct);
+
+                    if (!alreadyAnalyzed)
+                    {
+                        if (playerResult.Notes.Any())
+                        {
+                            var noteLines = playerResult.Notes.Select(n => $"- {n}");
+                            var fullNote = $"[Auto-Replay]\n{string.Join("\n", noteLines)}";
+                            await repo.AddNoteAsync(opponent.Id, fullNote, "replay", matchRecord.Id, playerResult.Tags, ct);
+                            _logger.LogInformation("Added auto-note to {Player}: {Note}", playerResult.Name, fullNote);
+                        }
+                        
+                        if (!string.IsNullOrWhiteSpace(result.GameMode))
+                        {
+                            await repo.AddTagAsync(opponent.Id, result.GameMode, ct);
+                        }
+                    }
                 }
                 return true;
             }

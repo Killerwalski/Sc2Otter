@@ -12,7 +12,7 @@ public interface IOpponentRepository
     Task UpdateOpponentAsync(Opponent opponent, CancellationToken ct = default);
     Task<List<Opponent>> SearchAsync(string? query = null, string? raceFilter = null, string? tagFilter = null, string? modeFilter = null, CancellationToken ct = default);
     Task<List<Opponent>> GetRecentAsync(int count = 10, CancellationToken ct = default);
-    Task<OpponentNote> AddNoteAsync(int opponentId, string content, string source = "keyboard", CancellationToken ct = default);
+    Task<OpponentNote> AddNoteAsync(int opponentId, string content, string source = "keyboard", int? matchRecordId = null, List<string>? autoTags = null, CancellationToken ct = default);
     Task UpdateNoteAsync(int noteId, string content, CancellationToken ct = default);
     Task DeleteNoteAsync(int noteId, CancellationToken ct = default);
     Task AddTagAsync(int opponentId, string tagName, CancellationToken ct = default);

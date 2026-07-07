@@ -102,7 +102,7 @@ def analyze_replay(replay_path, my_name=None):
                     if unit_name in ['SpawningPool', 'Gateway', 'Barracks', 'Forge', 'EngineeringBay'] and time_sec < first_prod_time:
                         first_prod_time = time_sec
                         
-                    if unit_name in ['Hatchery', 'Nexus', 'CommandCenter'] and time_sec < first_exp_time:
+                    if unit_name in ['Hatchery', 'Lair', 'Hive', 'Nexus', 'CommandCenter', 'OrbitalCommand', 'PlanetaryFortress'] and time_sec < first_exp_time:
                         first_exp_time = time_sec
                     
                     # 1. Fast Pool Detection (Zerg)

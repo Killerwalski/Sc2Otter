@@ -9,5 +9,10 @@ public class OpponentNote
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 
+    public int? MatchRecordId { get; set; }
+    public MatchRecord? MatchRecord { get; set; }
+    
+    public List<string> AutoTags { get; set; } = new();
+
     public Opponent Opponent { get; set; } = null!;
 }

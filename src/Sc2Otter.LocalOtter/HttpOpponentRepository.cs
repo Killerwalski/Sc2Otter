@@ -61,12 +61,12 @@ public class HttpOpponentRepository(HttpClient http) : IOpponentRepository
         return await http.GetFromJsonAsync<List<Opponent>>($"/api/opponents/recent?count={count}", ct) ?? [];
     }
 
-    public async Task<OpponentNote> AddNoteAsync(int opponentId, string content, string source = "keyboard", CancellationToken ct = default)
+    public async Task<OpponentNote> AddNoteAsync(int opponentId, string content, string source = "keyboard", int? matchRecordId = null, List<string>? autoTags = null, CancellationToken ct = default)
     {
-        var req = new AddNoteRequest { Content = content, Source = source };
+        var req = new AddNoteRequest { Content = content, Source = source, MatchRecordId = matchRecordId, AutoTags = autoTags ?? new() };
         var res = await http.PostAsJsonAsync($"/api/opponents/{opponentId}/notes", req, ct);
         res.EnsureSuccessStatusCode();
-        return await res.Content.ReadFromJsonAsync<OpponentNote>(cancellationToken: ct) ?? throw new Exception();
+        return (await res.Content.ReadFromJsonAsync<OpponentNote>(cancellationToken: ct))!;
     }
 
     public async Task UpdateNoteAsync(int noteId, string content, CancellationToken ct = default)
