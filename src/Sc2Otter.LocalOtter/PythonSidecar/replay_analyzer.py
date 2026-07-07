@@ -195,7 +195,7 @@ def analyze_replay(replay_path, my_name=None):
                 elif event.name == 'UnitDiedEvent' and event.unit.owner and event.unit.owner.pid == player.pid:
                     if event.unit.name not in ['SCV', 'Probe', 'Drone', 'Overlord', 'OverlordTransport', 'MULE', 'Broodling', 'Larva', 'Egg', 'CreepTumor', 'AutoTurret']:
                         if not getattr(event.unit, 'is_building', False):
-                            minute = event.second // 60
+                            minute = (event.second // 120) * 2
                             # Find or create minute bucket
                             bucket = next((b for b in player_result["telemetry"]["armyLost"] if b[0] == minute), None)
                             if bucket:
@@ -213,8 +213,8 @@ def analyze_replay(replay_path, my_name=None):
                 
                 # Telemetry extraction (optimized to array of arrays to save LLM tokens: [minute, workers, supply, min_income, gas_income])
                 for e in stats_events:
-                    if e.second % 60 < 15: # Take roughly 1 sample per minute (stats events occur every 10s)
-                        minute = e.second // 60
+                    if e.second % 120 < 15: # Take roughly 1 sample per 2 minutes
+                        minute = (e.second // 120) * 2
                         if not any(t[0] == minute for t in player_result["telemetry"]["economy"]):
                             player_result["telemetry"]["economy"].append([
                                 minute,
@@ -304,6 +304,9 @@ def analyze_replay(replay_path, my_name=None):
             if units.get('Liberator', 0) >= 7: player_result["tags"].append("Mass Liberator")
             if units.get('Banshee', 0) >= 5: player_result["tags"].append("Mass Banshee")
             if units.get('Ghost', 0) >= 8: player_result["tags"].append("Mass Ghost")
+            
+            # Attach unitsMade to telemetry for AI analysis of favored composition
+            player_result["telemetry"]["unitsMade"] = player_result["unitsMade"]
                                     
             results.append(player_result)
             

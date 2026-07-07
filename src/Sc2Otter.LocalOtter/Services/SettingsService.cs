@@ -22,6 +22,7 @@ public class UserSettings
     public string AiProvider { get; set; } = "OpenAI";
     public string AiApiKey { get; set; } = string.Empty;
     public string AiModel { get; set; } = "gpt-4o-mini";
+    public string AiBaseUrl { get; set; } = string.Empty;
     
     public UserSettings Clone() => (UserSettings)MemberwiseClone();
 }

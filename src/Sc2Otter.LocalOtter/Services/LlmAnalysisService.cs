@@ -27,10 +27,10 @@ public class LlmAnalysisService
 
     private const string SystemPrompt = 
         "You are a Grandmaster StarCraft 2 coach. Analyze the provided game telemetry JSON. " +
-        "'economy' is an array of [minute, workers, supply, min_income, gas_income]. 'armyLost' is an array of [minute, units_lost]. " +
+        "'economy' is an array of [minute, workers, supply, min_income, gas_income]. 'armyLost' is an array of [minute, units_lost]. 'unitsMade' is a dict of unit types created. " +
         "Output ONLY a valid JSON object with two fields: " +
         "'archetype': A 2-3 word classification (e.g., 'Macro Defensive', '1-Base All-In', 'Heavy Harass', 'Standard Macro'). " +
-        "'summary': A 1-2 sentence pragmatic summary of how this player played this game based on the stats.";
+        "'summary': A 1-2 sentence pragmatic summary of how this player played this game based on the stats. You MUST explicitly state the primary unit types or composition they favored in this summary.";
 
     public LlmAnalysisService(HttpClient httpClient, SettingsService settingsService, ILogger<LlmAnalysisService> logger)
     {
@@ -112,11 +112,23 @@ public class LlmAnalysisService
             response_format = new { type = "json_object" }
         };
 
-        var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/chat/completions")
+        var baseUrl = string.IsNullOrWhiteSpace(settings.AiBaseUrl) 
+            ? "https://api.openai.com/v1/chat/completions" 
+            : settings.AiBaseUrl.Trim();
+            
+        var request = new HttpRequestMessage(HttpMethod.Post, baseUrl)
         {
             Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
         };
-        request.Headers.Add("Authorization", $"Bearer {settings.AiApiKey?.Trim()}");
+        
+        if (baseUrl.Contains("openai.azure.com"))
+        {
+            request.Headers.Add("api-key", settings.AiApiKey?.Trim());
+        }
+        else
+        {
+            request.Headers.Add("Authorization", $"Bearer {settings.AiApiKey?.Trim()}");
+        }
 
         var response = await _httpClient.SendAsync(request, ct);
         if (!response.IsSuccessStatusCode)
