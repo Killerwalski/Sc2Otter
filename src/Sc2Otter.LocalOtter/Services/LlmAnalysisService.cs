@@ -66,9 +66,10 @@ public class LlmAnalysisService
 
     private async Task<PlaystyleSummary?> CallOpenAiAsync(UserSettings settings, string telemetry, CancellationToken ct)
     {
+        var model = string.IsNullOrWhiteSpace(settings.AiModel) ? "gpt-4o-mini" : settings.AiModel.Trim();
         var requestBody = new
         {
-            model = string.IsNullOrWhiteSpace(settings.AiModel) ? "gpt-4o-mini" : settings.AiModel,
+            model = model,
             messages = new[]
             {
                 new { role = "system", content = SystemPrompt },
@@ -81,10 +82,15 @@ public class LlmAnalysisService
         {
             Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
         };
-        request.Headers.Add("Authorization", $"Bearer {settings.AiApiKey}");
+        request.Headers.Add("Authorization", $"Bearer {settings.AiApiKey?.Trim()}");
 
         var response = await _httpClient.SendAsync(request, ct);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(ct);
+            _logger.LogError($"OpenAI API returned {response.StatusCode}: {errorBody}");
+            response.EnsureSuccessStatusCode();
+        }
 
         var responseJson = await response.Content.ReadAsStringAsync(ct);
         var jsonDoc = JsonDocument.Parse(responseJson);
@@ -95,8 +101,8 @@ public class LlmAnalysisService
 
     private async Task<PlaystyleSummary?> CallGeminiAsync(UserSettings settings, string telemetry, CancellationToken ct)
     {
-        var model = string.IsNullOrWhiteSpace(settings.AiModel) ? "gemini-1.5-flash" : settings.AiModel;
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={settings.AiApiKey}";
+        var model = string.IsNullOrWhiteSpace(settings.AiModel) ? "gemini-1.5-flash" : settings.AiModel.Trim();
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={settings.AiApiKey?.Trim()}";
 
         var requestBody = new
         {
@@ -117,8 +123,13 @@ public class LlmAnalysisService
         };
 
         var response = await _httpClient.SendAsync(request, ct);
-        response.EnsureSuccessStatusCode();
-
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(ct);
+            _logger.LogError($"Gemini API returned {response.StatusCode}: {errorBody}");
+            response.EnsureSuccessStatusCode();
+        }
         var responseJson = await response.Content.ReadAsStringAsync(ct);
         var jsonDoc = JsonDocument.Parse(responseJson);
         var content = jsonDoc.RootElement.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString();
@@ -128,9 +139,10 @@ public class LlmAnalysisService
 
     private async Task<PlaystyleSummary?> CallClaudeAsync(UserSettings settings, string telemetry, CancellationToken ct)
     {
+        var model = string.IsNullOrWhiteSpace(settings.AiModel) ? "claude-3-haiku-20240307" : settings.AiModel.Trim();
         var requestBody = new
         {
-            model = string.IsNullOrWhiteSpace(settings.AiModel) ? "claude-3-haiku-20240307" : settings.AiModel,
+            model = model,
             max_tokens = 1000,
             system = SystemPrompt,
             messages = new[]
@@ -143,11 +155,16 @@ public class LlmAnalysisService
         {
             Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
         };
-        request.Headers.Add("x-api-key", settings.AiApiKey);
+        request.Headers.Add("x-api-key", settings.AiApiKey?.Trim());
         request.Headers.Add("anthropic-version", "2023-06-01");
 
         var response = await _httpClient.SendAsync(request, ct);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(ct);
+            _logger.LogError($"Claude API returned {response.StatusCode}: {errorBody}");
+            response.EnsureSuccessStatusCode();
+        }
 
         var responseJson = await response.Content.ReadAsStringAsync(ct);
         var jsonDoc = JsonDocument.Parse(responseJson);
