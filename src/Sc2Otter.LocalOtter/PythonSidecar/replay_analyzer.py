@@ -22,7 +22,7 @@ def analyze_replay(replay_path, my_name=None):
             player_result = {
                 "name": player.name,
                 "toonHandle": getattr(player, 'toon_handle', None),
-                "race": player.play_race,
+                "race": 'Random' if hasattr(player, 'pick_race') and player.pick_race == 'Random' else player.play_race,
                 "result": player.result,
                 "teamId": getattr(player, 'team_id', 0),
                 "tags": [],

@@ -39,7 +39,7 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
                 .Where(o =>
                     o.UserId == UserId &&
                     EF.Functions.ILike(o.Name, name) &&
-                    (race == null || o.Race == race));
+                    (race == null || o.Race == race || o.Race == "Random" || race == "Random"));
 
             // If we have a ToonHandle but didn't find them above, it means this is a new player.
             // We can only fall back to an existing opponent if they DON'T have a ToonHandle yet
@@ -63,7 +63,14 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
 
         if (opponent is not null)
         {
-            if (race is not null) opponent.Race = race;
+            if (race is not null && opponent.Race != "Random" && race != "Random") 
+            {
+                opponent.Race = race;
+            }
+            else if (race is not null && string.IsNullOrEmpty(opponent.Race))
+            {
+                opponent.Race = race;
+            }
 
             // Link toonHandle if we found them by Name and they didn't have one
             if (!string.IsNullOrWhiteSpace(toonHandle) && string.IsNullOrWhiteSpace(opponent.ToonHandle))
