@@ -194,7 +194,7 @@ def analyze_replay(replay_path, my_name=None):
                         
                 elif event.name == 'UnitDiedEvent' and event.unit.owner and event.unit.owner.pid == player.pid:
                     if event.unit.name not in ['SCV', 'Probe', 'Drone', 'Overlord', 'OverlordTransport', 'MULE', 'Broodling', 'Larva', 'Egg', 'CreepTumor', 'AutoTurret']:
-                        if 'Structure' not in getattr(event.unit, 'flags', []):
+                        if not getattr(event.unit, 'is_building', False):
                             minute = event.second // 60
                             # Find or create minute bucket
                             bucket = next((b for b in player_result["telemetry"]["armyLost"] if b["m"] == minute), None)
