@@ -13,9 +13,10 @@ if (!args.Contains("--run"))
 {
     while (true)
     {
+        var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "Unknown";
         Console.Clear();
         Console.WriteLine("========================================");
-        Console.WriteLine("               Sc2Otter                 ");
+        Console.WriteLine($"           Sc2Otter v{version}          ");
         Console.WriteLine("========================================");
         Console.WriteLine();
         Console.WriteLine("What would you like to do?");
