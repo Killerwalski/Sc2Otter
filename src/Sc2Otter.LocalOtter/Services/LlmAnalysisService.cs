@@ -60,14 +60,8 @@ public class LlmAnalysisService
                 await _rateLimitSemaphore.WaitAsync(ct);
                 try
                 {
-                    // Enforce a minimum of 4.2 seconds between any LLM requests (approx 14 requests per minute)
-                    var timeSinceLast = DateTime.UtcNow - _lastRequestTime;
-                    var minDelay = TimeSpan.FromSeconds(4.2);
-                    if (timeSinceLast < minDelay)
-                    {
-                        await Task.Delay(minDelay - timeSinceLast, ct);
-                    }
-                    _lastRequestTime = DateTime.UtcNow;
+                    // Allow requests to process as fast as the API allows.
+                    // If a user hits a rate limit, the exponential backoff catch block will naturally throttle them.
                 }
                 finally
                 {
