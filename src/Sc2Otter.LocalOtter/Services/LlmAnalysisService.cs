@@ -101,7 +101,7 @@ public class LlmAnalysisService
 
     private async Task<PlaystyleSummary?> CallGeminiAsync(UserSettings settings, string telemetry, CancellationToken ct)
     {
-        var model = string.IsNullOrWhiteSpace(settings.AiModel) ? "gemini-1.5-flash" : settings.AiModel.Trim();
+        var model = string.IsNullOrWhiteSpace(settings.AiModel) ? "gemini-2.0-flash" : settings.AiModel.Trim();
         var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={settings.AiApiKey?.Trim()}";
 
         var requestBody = new
