@@ -16,9 +16,15 @@ public class HttpOpponentRepository(HttpClient http) : IOpponentRepository
         return await http.GetFromJsonAsync<Opponent>($"/api/opponents/search?query={Uri.EscapeDataString(name)}", ct);
     }
 
-    public async Task<Opponent> GetOrCreateAsync(string name, string? race, DateTime? seenAt = null, CancellationToken ct = default)
+    public async Task<Opponent?> FindByToonHandleOrNameAsync(string name, string? toonHandle, CancellationToken ct = default)
+    {
+        return await FindByNameAsync(name, ct);
+    }
+
+    public async Task<Opponent> GetOrCreateAsync(string name, string? toonHandle, string? race, DateTime? seenAt = null, CancellationToken ct = default)
     {
         var url = $"/api/opponents/get-or-create?name={Uri.EscapeDataString(name)}&race={Uri.EscapeDataString(race ?? "")}";
+        if (!string.IsNullOrEmpty(toonHandle)) url += $"&toonHandle={Uri.EscapeDataString(toonHandle)}";
         if (seenAt.HasValue)
         {
             var utcTime = seenAt.Value.Kind == DateTimeKind.Utc ? seenAt.Value : DateTime.SpecifyKind(seenAt.Value, DateTimeKind.Utc);
