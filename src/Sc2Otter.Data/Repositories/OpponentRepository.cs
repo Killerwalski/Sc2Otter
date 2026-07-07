@@ -403,6 +403,16 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
             .ToListAsync(ct);
     }
 
+    public async Task DeleteOpponentAsync(int opponentId, CancellationToken ct = default)
+    {
+        var opponent = await db.Opponents.FirstOrDefaultAsync(o => o.Id == opponentId && o.UserId == UserId, ct);
+        if (opponent != null)
+        {
+            db.Opponents.Remove(opponent);
+            await db.SaveChangesAsync(ct);
+        }
+    }
+
     public async Task<(int TotalGames, int Wins, int Losses)> GetStatsAsync(int opponentId, CancellationToken ct = default)
     {
         // Project the counts server-side with a single SQL query instead of loading all rows into memory.

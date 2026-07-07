@@ -150,6 +150,12 @@ public class HttpOpponentRepository(HttpClient http) : IOpponentRepository
         return Task.FromResult(new List<MatchRecord>());
     }
 
+    public async Task DeleteOpponentAsync(int opponentId, CancellationToken ct = default)
+    {
+        var response = await http.DeleteAsync($"/api/opponents/{opponentId}", ct);
+        response.EnsureSuccessStatusCode();
+    }
+
     public async Task<(int TotalGames, int Wins, int Losses)> GetStatsAsync(int opponentId, CancellationToken ct = default)
     {
         return await http.GetFromJsonAsync<(int, int, int)>($"/api/opponents/{opponentId}/stats", ct);

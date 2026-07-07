@@ -23,5 +23,6 @@ public interface IOpponentRepository
     Task<MatchRecord?> GetMatchByIdAsync(int matchId, CancellationToken ct = default);
     Task<List<MatchRecord>> GetMatchesByDateAsync(DateTime playedAt, CancellationToken ct = default);
     Task<(int TotalGames, int Wins, int Losses)> GetStatsAsync(int opponentId, CancellationToken ct = default);
+    Task DeleteOpponentAsync(int opponentId, CancellationToken ct = default);
     Task WipeDatabaseAsync(CancellationToken ct = default);
 }

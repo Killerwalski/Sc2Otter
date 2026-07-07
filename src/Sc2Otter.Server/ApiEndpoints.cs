@@ -79,9 +79,15 @@ public static class ApiEndpoints
 
         group.MapPut("/{id}", async (int id, [FromBody] Opponent opponent, IOpponentRepository repo, CancellationToken ct) =>
         {
-            opponent.Id = id; // Ensure ID matches route
+            opponent.Id = id;
             await repo.UpdateOpponentAsync(opponent, ct);
-            return Results.Ok();
+            return Results.NoContent();
+        });
+
+        group.MapDelete("/{id}", async (int id, IOpponentRepository repo, CancellationToken ct) =>
+        {
+            await repo.DeleteOpponentAsync(id, ct);
+            return Results.NoContent();
         });
 
         group.MapGet("/search", async (string? query, string? raceFilter, string? tagFilter, string? modeFilter, IOpponentRepository repo, CancellationToken ct) =>
