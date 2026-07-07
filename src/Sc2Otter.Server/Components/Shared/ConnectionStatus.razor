@@ -63,7 +63,7 @@
         _hubConnection.On<GameStateChangedEvent>("GameStateChanged", (e) =>
         {
             IsConnected = true;
-            IsSc2Running = e.NewState != Sc2GameState.WaitingForSc2;
+            IsSc2Running = e.State != Sc2GameState.WaitingForSc2;
             InvokeAsync(StateHasChanged);
             
             _timer?.Stop();
