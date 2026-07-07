@@ -38,6 +38,9 @@ public class LlmAnalysisService
         _logger = logger;
     }
 
+    private static readonly SemaphoreSlim _rateLimitSemaphore = new SemaphoreSlim(1, 1);
+    private static DateTime _lastRequestTime = DateTime.MinValue;
+
     public async Task<PlaystyleSummary?> AnalyzeTelemetryAsync(string telemetryJson, CancellationToken ct = default)
     {
         var settings = _settingsService.Current;
@@ -54,6 +57,23 @@ public class LlmAnalysisService
         {
             try
             {
+                await _rateLimitSemaphore.WaitAsync(ct);
+                try
+                {
+                    // Enforce a minimum of 4.2 seconds between any LLM requests (approx 14 requests per minute)
+                    var timeSinceLast = DateTime.UtcNow - _lastRequestTime;
+                    var minDelay = TimeSpan.FromSeconds(4.2);
+                    if (timeSinceLast < minDelay)
+                    {
+                        await Task.Delay(minDelay - timeSinceLast, ct);
+                    }
+                    _lastRequestTime = DateTime.UtcNow;
+                }
+                finally
+                {
+                    _rateLimitSemaphore.Release();
+                }
+
                 return provider switch
                 {
                     "openai" => await CallOpenAiAsync(settings, telemetryJson, ct),
@@ -66,7 +86,7 @@ public class LlmAnalysisService
             {
                 if (i == maxRetries - 1)
                 {
-                    _logger.LogError(ex, "Failed to analyze telemetry using LLM API after multiple retries due to rate limiting.");
+                    _logger.LogWarning("Failed to analyze telemetry using LLM API after multiple retries due to rate limiting.");
                     return null;
                 }
                 
@@ -76,7 +96,7 @@ public class LlmAnalysisService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to analyze telemetry using LLM API.");
+                _logger.LogWarning("Failed to analyze telemetry using LLM API: {Message}", ex.Message);
                 return null;
             }
         }
@@ -107,7 +127,7 @@ public class LlmAnalysisService
         if (!response.IsSuccessStatusCode)
         {
             var errorBody = await response.Content.ReadAsStringAsync(ct);
-            _logger.LogError($"OpenAI API returned {response.StatusCode}: {errorBody}");
+            _logger.LogWarning($"OpenAI API returned {response.StatusCode}: {errorBody}");
             response.EnsureSuccessStatusCode();
         }
 
@@ -151,7 +171,7 @@ public class LlmAnalysisService
         if (!response.IsSuccessStatusCode)
         {
             var errorBody = await response.Content.ReadAsStringAsync(ct);
-            _logger.LogError($"Gemini API returned {response.StatusCode}: {errorBody}");
+            _logger.LogWarning($"Gemini API returned {response.StatusCode}: {errorBody}");
             response.EnsureSuccessStatusCode();
         }
         var responseJson = await response.Content.ReadAsStringAsync(ct);
@@ -186,7 +206,7 @@ public class LlmAnalysisService
         if (!response.IsSuccessStatusCode)
         {
             var errorBody = await response.Content.ReadAsStringAsync(ct);
-            _logger.LogError($"Claude API returned {response.StatusCode}: {errorBody}");
+            _logger.LogWarning($"Claude API returned {response.StatusCode}: {errorBody}");
             response.EnsureSuccessStatusCode();
         }
 
