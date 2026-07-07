@@ -27,9 +27,10 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
 
         if (opponent is null)
         {
+            // Fallback: search by name and race if toonHandle didn't match (e.g. some local queries don't have toonHandle)
             opponent = await db.Opponents
                 .Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag)
-                .FirstOrDefaultAsync(o => o.UserId == UserId && o.Name.ToLower() == name.ToLower(), ct);
+                .FirstOrDefaultAsync(o => o.UserId == UserId && o.Name.ToLower() == name.ToLower() && (race == null || o.Race == race), ct);
         }
 
         return opponent;

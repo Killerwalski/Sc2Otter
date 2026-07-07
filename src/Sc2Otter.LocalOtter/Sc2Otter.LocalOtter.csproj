@@ -23,7 +23,7 @@
     <ToolCommandName>sc2otter</ToolCommandName>
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <PackageId>Sc2Otter.LocalOtter</PackageId>
-    <Version>1.4.1</Version>
+    <Version>1.4.2</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <IsPackable>true</IsPackable>
     <AssemblyName>sc2otter</AssemblyName>

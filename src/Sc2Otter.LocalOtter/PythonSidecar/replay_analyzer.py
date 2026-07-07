@@ -1,6 +1,8 @@
 import sys
 import json
 import math
+import os
+from datetime import datetime, timezone, timedelta
 import sc2reader
 
 def analyze_replay(replay_path, my_name=None):
@@ -95,7 +97,7 @@ def analyze_replay(replay_path, my_name=None):
             
             for event in replay.tracker_events:
                 if event.name == 'UnitInitEvent' and event.control_pid == player.pid:
-                    unit_name = event.unit.name
+                    unit_name = getattr(event, 'unit_type_name', event.unit.name)
                     time_sec = event.second
                     
                     if unit_name in ['SpawningPool', 'Gateway', 'Barracks', 'Forge', 'EngineeringBay'] and time_sec < first_prod_time:
@@ -131,7 +133,7 @@ def analyze_replay(replay_path, my_name=None):
                                     player_result["tags"].append(tag_name)
                                     player_result["notes"].append(f"Proxied {unit_name} at {time_sec//60}:{time_sec%60:02d}")
                 elif event.name == 'UnitBornEvent' and event.control_pid == player.pid:
-                    unit_name = event.unit.name
+                    unit_name = getattr(event, 'unit_type_name', event.unit.name)
                     time_sec = event.second
                     
                     if unit_name == 'Mutalisk':
@@ -152,7 +154,7 @@ def analyze_replay(replay_path, my_name=None):
                     elif unit_name in ['SCV', 'Probe', 'Drone']:
                         player_result["stats"]["workersCreated"] += 1
                 elif event.name == 'UnitInitEvent' and event.control_pid == player.pid:
-                    unit_name = event.unit.name
+                    unit_name = getattr(event, 'unit_type_name', event.unit.name)
                     time_sec = event.second
                     
                     if unit_name == 'NydusNetwork':
@@ -188,7 +190,19 @@ def analyze_replay(replay_path, my_name=None):
             if first_exp_time > 240:
                 if "One baser" not in player_result["tags"]:
                     player_result["tags"].append("One baser")
-                    player_result["notes"].append("Did not build an expansion before 4:00")
+                    if first_exp_time < 9999:
+                        unit_str = "Hatchery" if player.play_race == 'Zerg' else ("Nexus" if player.play_race == 'Protoss' else "Command Center")
+                        player_result["notes"].append(f"Built first {unit_str} at {first_exp_time//60}:{first_exp_time%60:02d}")
+                    else:
+                        player_result["notes"].append("Did not build an expansion")
+                        
+            # 3c. Forge Expand
+            if player.play_race == 'Protoss' and 'Forge' in player_result["unitsMade"]:
+                forge_time = next((e.second for e in replay.tracker_events if e.name == 'UnitInitEvent' and e.control_pid == player.pid and getattr(e, 'unit_type_name', e.unit.name) == 'Forge'), 9999)
+                if forge_time < 150: # Forge before 2:30
+                    if "Forge Expand" not in player_result["tags"]:
+                        player_result["tags"].append("Forge Expand")
+                        player_result["notes"].append(f"Built early Forge ({forge_time//60}:{forge_time%60:02d})")
                         
             # 4. Unit Composition / Other Tags
             if mutalisk_count > 8:
@@ -252,10 +266,16 @@ def analyze_replay(replay_path, my_name=None):
         else:
             game_mode = None
             
+        # sc2reader start_time has a bug with timezone offsets on some platforms.
+        # We use file modification time instead.
+        mtime = os.path.getmtime(replay_path)
+        dt = datetime.fromtimestamp(mtime, tz=timezone.utc)
+        start_dt = dt - timedelta(seconds=replay.length.seconds)
+            
         result_json = {
             "success": True, 
             "mapName": replay.map_name,
-            "startTime": replay.start_time.isoformat(),
+            "startTime": start_dt.isoformat(),
             "gameMode": game_mode,
             "data": results
         }
