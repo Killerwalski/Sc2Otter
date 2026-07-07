@@ -31,5 +31,8 @@ public class MatchRecord
     public string? OpponentUnitsMade { get; set; }
     public string? FullMatchData { get; set; }
 
+    public string? PlaystyleArchetype { get; set; }
+    public string? PlaystyleSummary { get; set; }
+
     public Opponent Opponent { get; set; } = null!;
 }

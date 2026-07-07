@@ -31,6 +31,8 @@ public static class TagDictionary
         new() { Name = "Multi reaper", Description = "Built more than 1 Reaper in the first 5 minutes.", Category = "Unit Composition & Tech", Race = "Terran" },
         new() { Name = "Battlecruiser", Description = "Built more than 1 Battlecruiser.", Category = "Unit Composition & Tech", Race = "Terran" },
         new() { Name = "Fast BCs", Description = "First Battlecruiser was produced before the 7 minute mark.", Category = "Unit Composition & Tech", Race = "Terran" },
+        new() { Name = "Fast 3 CC", Description = "Built a 3rd Command Center before a 2nd Refinery.", Category = "Build Order", Race = "Terran" },
+        new() { Name = "Fast 3 Hatchery", Description = "Built a 3rd Hatchery before 36 total supply.", Category = "Build Order", Race = "Zerg" },
         new() { Name = "Fast DTs", Description = "Dark Shrine was started before the 7 minute mark.", Category = "Unit Composition & Tech", Race = "Protoss" },
         new() { Name = "Warp prism", Description = "Built at least one Warp Prism.", Category = "Unit Composition & Tech", Race = "Protoss" },
         new() { Name = "Nydus Network", Description = "Built a Nydus Network.", Category = "Unit Composition & Tech", Race = "Zerg" },
@@ -50,12 +52,28 @@ public static class TagDictionary
         new() { Name = "Mass Tempest", Description = "Built 6 or more Tempests.", Category = "Mass Unit", Race = "Protoss" },
         new() { Name = "Mass Archon", Description = "Built 10 or more Archons.", Category = "Mass Unit", Race = "Protoss" },
 
-        new() { Name = "Mass Hellion", Description = "Built 12 or more Hellions (or Hellbats).", Category = "Mass Unit", Race = "Terran" },
-        new() { Name = "Mass Widow Mine", Description = "Built 8 or more Widow Mines.", Category = "Mass Unit", Race = "Terran" },
+        new() { Name = "Mass Hellion", Description = "Built 15 or more Hellions (or Hellbats).", Category = "Mass Unit", Race = "Terran" },
+        new() { Name = "Mass Widow Mine", Description = "Built 10 or more Widow Mines.", Category = "Mass Unit", Race = "Terran" },
         new() { Name = "Mass Cyclone", Description = "Built 8 or more Cyclones.", Category = "Mass Unit", Race = "Terran" },
-        new() { Name = "Mass Liberator", Description = "Built 5 or more Liberators.", Category = "Mass Unit", Race = "Terran" },
+        new() { Name = "Mass Liberator", Description = "Built 7 or more Liberators.", Category = "Mass Unit", Race = "Terran" },
         new() { Name = "Mass Banshee", Description = "Built 5 or more Banshees.", Category = "Mass Unit", Race = "Terran" },
-        new() { Name = "Mass Ghost", Description = "Built 8 or more Ghosts.", Category = "Mass Unit", Race = "Terran" }
+        new() { Name = "Mass Ghost", Description = "Built 8 or more Ghosts.", Category = "Mass Unit", Race = "Terran" },
+
+        // Proxies
+        new() { Name = "Proxy Rax", Description = "Built an early Barracks outside their main base.", Category = "Cheese & Aggression", Race = "Terran" },
+        new() { Name = "Proxy Factory", Description = "Built an early Factory outside their main base.", Category = "Cheese & Aggression", Race = "Terran" },
+        new() { Name = "Proxy Starport", Description = "Built an early Starport outside their main base.", Category = "Cheese & Aggression", Race = "Terran" },
+        new() { Name = "Proxy Gate", Description = "Built an early Gateway outside their main base.", Category = "Cheese & Aggression", Race = "Protoss" },
+        new() { Name = "Proxy Robo", Description = "Built an early Robotics Facility outside their main base.", Category = "Cheese & Aggression", Race = "Protoss" },
+        new() { Name = "Proxy Stargate", Description = "Built an early Stargate outside their main base.", Category = "Cheese & Aggression", Race = "Protoss" },
+        new() { Name = "Proxy Forge", Description = "Built an early Forge outside their main base.", Category = "Cheese & Aggression", Race = "Protoss" },
+        new() { Name = "Forge Expand", Description = "Built an early Forge before expanding (often indicates cannon rush or defensive play).", Category = "Macro & Economy", Race = "Protoss" },
+
+        // Game Modes
+        new() { Name = "1v1", Description = "Played in a 1v1 match.", Category = "Game Mode", Race = null },
+        new() { Name = "2v2", Description = "Played in a 2v2 match.", Category = "Game Mode", Race = null },
+        new() { Name = "3v3", Description = "Played in a 3v3 match.", Category = "Game Mode", Race = null },
+        new() { Name = "4v4", Description = "Played in a 4v4 match.", Category = "Game Mode", Race = null }
     };
 
     // O(1) lookup dictionary built once at startup — keyed by lower-case tag name.

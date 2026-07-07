@@ -43,6 +43,19 @@ else
             }
         </div>
     </div>
+    
+    @if (!string.IsNullOrEmpty(Match.PlaystyleSummary))
+    {
+        <div class="stat-card" style="margin-bottom: 24px; padding: 16px; background-color: rgba(94, 92, 230, 0.05); border-color: rgba(94, 92, 230, 0.2);">
+            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 1.2rem; margin-right: 8px;">âœ¨</span>
+                <span style="font-weight: 600; color: #5e5ce6;">Playstyle: @(Match.PlaystyleArchetype ?? "Unknown")</span>
+            </div>
+            <div style="font-size: 0.95rem; color: #a0a0a5; line-height: 1.5;">
+                @Match.PlaystyleSummary
+            </div>
+        </div>
+    }
 
     @if (AllPlayers != null && AllPlayers.Count > 0)
     {

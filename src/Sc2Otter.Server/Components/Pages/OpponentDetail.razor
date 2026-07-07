@@ -52,6 +52,28 @@ else
                          OnTagRemoved="HandleTagRemoved" />
         </div>
 
+        @if (PlaystyleArchetypes.Any())
+        {
+            <div class="detail-section">
+                <div class="detail-section-title">Playstyle Summary</div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    @foreach (var kvp in PlaystyleArchetypes)
+                    {
+                        var percentage = (int)Math.Round((double)kvp.Value / PlaystyleArchetypes.Values.Sum() * 100);
+                        <div style="display: flex; align-items: center;">
+                            <div style="flex: 1; font-size: 0.9rem; color: #e1e1e6;">@kvp.Key</div>
+                            <div style="flex: 2; display: flex; align-items: center; gap: 8px;">
+                                <div style="flex: 1; height: 6px; background-color: rgba(94, 92, 230, 0.2); border-radius: 3px; overflow: hidden;">
+                                    <div style="height: 100%; width: @percentage%; background-color: #5e5ce6;"></div>
+                                </div>
+                                <div style="font-size: 0.85rem; color: #a0a0a5; width: 40px; text-align: right;">@percentage%</div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
         <div class="detail-section">
             <div class="detail-section-title">Match History (@TotalGames games)</div>
             <MatchHistory Matches="@Opponent.MatchRecords.ToList()" />
@@ -130,6 +152,7 @@ else
     private int TotalGames { get; set; }
     private int Wins { get; set; }
     private int Losses { get; set; }
+    private Dictionary<string, int> PlaystyleArchetypes { get; set; } = new();
     private int? EditingNoteId { get; set; }
     private string EditNoteText { get; set; } = string.Empty;
     private HubConnection? _hubConnection;
@@ -164,6 +187,13 @@ else
             TotalGames = stats.TotalGames;
             Wins = stats.Wins;
             Losses = stats.Losses;
+            
+            PlaystyleArchetypes = Opponent.MatchRecords
+                .Where(m => !string.IsNullOrEmpty(m.PlaystyleArchetype))
+                .GroupBy(m => m.PlaystyleArchetype!)
+                .ToDictionary(g => g.Key, g => g.Count())
+                .OrderByDescending(kvp => kvp.Value)
+                .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
         }
     }
 

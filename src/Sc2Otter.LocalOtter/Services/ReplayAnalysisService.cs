@@ -9,6 +9,7 @@ public class ReplayAnalysisService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly SettingsService _settingsService;
+    private readonly LlmAnalysisService _llmService;
     private readonly ILogger<ReplayAnalysisService> _logger;
     private readonly string _pythonScriptPath;
 
@@ -18,10 +19,12 @@ public class ReplayAnalysisService
     public ReplayAnalysisService(
         IServiceScopeFactory scopeFactory,
         SettingsService settingsService,
+        LlmAnalysisService llmService,
         ILogger<ReplayAnalysisService> logger)
     {
         _scopeFactory = scopeFactory;
         _settingsService = settingsService;
+        _llmService = llmService;
         _logger = logger;
 
         _pythonScriptPath = Path.Combine(Path.GetTempPath(), "replay_analyzer.py");
@@ -144,6 +147,7 @@ public class ReplayAnalysisService
         public List<string> Notes { get; set; } = [];
         public Dictionary<string, int>? UnitsMade { get; set; }
         public PlayerStatsResult? Stats { get; set; }
+        public JsonElement? Telemetry { get; set; }
     }
 
     private class PlayerStatsResult
@@ -309,6 +313,17 @@ public class ReplayAnalysisService
 
             var fullMatchDataStr = JsonSerializer.Serialize(result.Data);
 
+            PlaystyleSummary? aiSummary = null;
+            if (playerResult.Telemetry != null && playerResult.Telemetry.Value.ValueKind != JsonValueKind.Null)
+            {
+                var telemetryJson = playerResult.Telemetry.Value.GetRawText();
+                if (telemetryJson != "{}")
+                {
+                    _logger.LogInformation("Calling LLM for telemetry analysis on opponent {Player}...", playerResult.Name);
+                    aiSummary = await _llmService.AnalyzeTelemetryAsync(telemetryJson, ct);
+                }
+            }
+
             var req = new RecordMatchRequest
             {
                 Result = ourResult,
@@ -317,7 +332,9 @@ public class ReplayAnalysisService
                 OpponentRace = playerResult.Race,
                 GameMode = result.GameMode,
                 PlayedAt = result.StartTime,
-                FullMatchData = fullMatchDataStr
+                FullMatchData = fullMatchDataStr,
+                PlaystyleArchetype = aiSummary?.Archetype,
+                PlaystyleSummary = aiSummary?.Summary
             };
 
             if (myResult?.Stats != null)

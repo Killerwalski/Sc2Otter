@@ -63,6 +63,26 @@ if (!args.Contains("--run"))
                 }
             }
 
+            Console.WriteLine("\n--- AI Playstyle Analysis ---");
+            Console.Write($"Enable AI Analysis? (true/false) [{settings.AiEnabled}]: ");
+            var aiEnabled = Console.ReadLine();
+            if (!string.IsNullOrWhiteSpace(aiEnabled) && bool.TryParse(aiEnabled, out var parsedAiEnabled)) settings.AiEnabled = parsedAiEnabled;
+
+            if (settings.AiEnabled)
+            {
+                Console.Write($"Enter AI Provider (OpenAI/Gemini/Claude) [{settings.AiProvider}]: ");
+                var aiProvider = Console.ReadLine();
+                if (!string.IsNullOrWhiteSpace(aiProvider)) settings.AiProvider = aiProvider;
+
+                Console.Write($"Enter AI Model (e.g. gpt-4o-mini, gemini-1.5-flash) [{settings.AiModel}]: ");
+                var aiModel = Console.ReadLine();
+                if (!string.IsNullOrWhiteSpace(aiModel)) settings.AiModel = aiModel;
+
+                Console.Write($"Enter API Key [{(!string.IsNullOrEmpty(settings.AiApiKey) ? "********" : "None")}]: ");
+                var aiKey = Console.ReadLine();
+                if (!string.IsNullOrWhiteSpace(aiKey)) settings.AiApiKey = aiKey;
+            }
+
             settingsService.Update(settings);
             
             Console.WriteLine();
@@ -88,6 +108,7 @@ builder.Logging.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning);
 builder.Logging.AddFilter("Microsoft.Extensions.Http", LogLevel.Warning);
 
 builder.Services.AddSingleton(settingsService);
+builder.Services.AddSingleton<LlmAnalysisService>();
 builder.Services.AddSingleton<ReplayAnalysisService>();
 
 builder.Services.AddHttpClient<ISc2GameClient, Sc2GameClient>(client =>

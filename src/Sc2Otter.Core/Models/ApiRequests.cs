@@ -48,4 +48,8 @@ public class RecordMatchRequest
     public int OpponentSupplyBlockTime { get; set; }
     public int OpponentAvgUnspentMinerals { get; set; }
     public int OpponentAvgMineralIncome { get; set; }
+    
+    // AI Playstyle analysis
+    public string? PlaystyleArchetype { get; set; }
+    public string? PlaystyleSummary { get; set; }
 }

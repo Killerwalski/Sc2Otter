@@ -17,6 +17,12 @@ public class UserSettings
     public string SyncKey { get; set; } = string.Empty;
     public string LastScanResult { get; set; } = string.Empty;
     
+    // --- AI Analysis ---
+    public bool AiEnabled { get; set; } = false;
+    public string AiProvider { get; set; } = "OpenAI";
+    public string AiApiKey { get; set; } = string.Empty;
+    public string AiModel { get; set; } = "gpt-4o-mini";
+    
     public UserSettings Clone() => (UserSettings)MemberwiseClone();
 }
 

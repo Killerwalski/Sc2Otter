@@ -329,6 +329,8 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
                 existingMatch.OpponentSupplyBlockTime = req.OpponentSupplyBlockTime;
                 existingMatch.OpponentAvgUnspentMinerals = req.OpponentAvgUnspentMinerals;
                 existingMatch.OpponentAvgMineralIncome = req.OpponentAvgMineralIncome;
+                if (!string.IsNullOrEmpty(req.PlaystyleArchetype)) existingMatch.PlaystyleArchetype = req.PlaystyleArchetype;
+                if (!string.IsNullOrEmpty(req.PlaystyleSummary)) existingMatch.PlaystyleSummary = req.PlaystyleSummary;
             }
 
             if (existingMatch.PlayedAt > opponent.LastSeen)
@@ -361,7 +363,9 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
             OpponentWorkersCreated = req.OpponentWorkersCreated,
             OpponentSupplyBlockTime = req.OpponentSupplyBlockTime,
             OpponentAvgUnspentMinerals = req.OpponentAvgUnspentMinerals,
-            OpponentAvgMineralIncome = req.OpponentAvgMineralIncome
+            OpponentAvgMineralIncome = req.OpponentAvgMineralIncome,
+            PlaystyleArchetype = req.PlaystyleArchetype,
+            PlaystyleSummary = req.PlaystyleSummary
         };
 
         db.MatchRecords.Add(match);

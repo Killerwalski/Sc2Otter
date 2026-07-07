@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Sc2Otter.Data;
@@ -12,9 +13,11 @@ using Sc2Otter.Data;
 namespace Sc2Otter.Data.Migrations
 {
     [DbContext(typeof(ScoutDbContext))]
-    partial class ScoutDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260707175443_AddPlaystyleMetadata")]
+    partial class AddPlaystyleMetadata
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

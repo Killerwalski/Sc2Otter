@@ -11,10 +11,20 @@
 
     private ElementReference timeSpan;
     private bool isFormatted;
+    private DateTime? _lastUtcTime;
+
+    protected override void OnParametersSet()
+    {
+        if (_lastUtcTime != UtcTime)
+        {
+            _lastUtcTime = UtcTime;
+            isFormatted = false;
+        }
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && !isFormatted)
+        if (!isFormatted)
         {
             try
             {

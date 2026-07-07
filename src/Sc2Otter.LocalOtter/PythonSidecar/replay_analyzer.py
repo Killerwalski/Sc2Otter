@@ -32,7 +32,11 @@ def analyze_replay(replay_path, my_name=None):
                     "workersCreated": 0,
                     "supplyBlockTime": 0,
                     "avgUnspentMinerals": 0,
-                    "avgMineralIncome": 0
+                    "avgMineralIncome": 0,
+                },
+                "telemetry": {
+                    "economy": [],
+                    "armyLost": []
                 }
             }
             
@@ -95,8 +99,18 @@ def analyze_replay(replay_path, my_name=None):
             dark_shrine_time = 9999
             bc_first_time = 9999
             
+            cc_count = 1
+            refinery_count = 0
+            
+            hatchery_count = 1
+            
+            current_food = 0
+            
             for event in replay.tracker_events:
-                if event.name == 'UnitInitEvent' and event.control_pid == player.pid:
+                if getattr(event, 'name', '') == 'PlayerStatsEvent' and getattr(event, 'pid', None) == player.pid:
+                    current_food = event.food_used
+                    
+                elif event.name == 'UnitInitEvent' and event.control_pid == player.pid:
                     unit_name = getattr(event, 'unit_type_name', event.unit.name)
                     time_sec = event.second
                     
@@ -132,6 +146,30 @@ def analyze_replay(replay_path, my_name=None):
                                     player_result["tags"].append("Cheese")
                                     player_result["tags"].append(tag_name)
                                     player_result["notes"].append(f"Proxied {unit_name} at {time_sec//60}:{time_sec%60:02d}")
+                                    
+                    if player.play_race == 'Terran':
+                        if unit_name == 'CommandCenter':
+                            cc_count += 1
+                            if cc_count == 3 and refinery_count < 2 and time_sec < 420:
+                                if "Fast 3 CC" not in player_result["tags"]:
+                                    player_result["tags"].append("Fast 3 CC")
+                                    player_result["notes"].append(f"Built 3rd CC before 2nd Refinery ({time_sec//60}:{time_sec%60:02d})")
+                        elif unit_name == 'Refinery':
+                            refinery_count += 1
+                    elif player.play_race == 'Zerg':
+                        if unit_name == 'Hatchery':
+                            hatchery_count += 1
+                            if hatchery_count == 3 and current_food < 36 and time_sec < 420:
+                                if "Fast 3 Hatchery" not in player_result["tags"]:
+                                    player_result["tags"].append("Fast 3 Hatchery")
+                                    player_result["notes"].append(f"Built 3rd Hatchery very fast at {current_food} supply ({time_sec//60}:{time_sec%60:02d})")
+                                    
+                    if unit_name == 'NydusNetwork':
+                        nydus_count += 1
+                    elif unit_name == 'DarkShrine':
+                        if time_sec < dark_shrine_time:
+                            dark_shrine_time = time_sec
+                            
                 elif event.name == 'UnitBornEvent' and event.control_pid == player.pid:
                     unit_name = getattr(event, 'unit_type_name', event.unit.name)
                     time_sec = event.second
@@ -153,16 +191,18 @@ def analyze_replay(replay_path, my_name=None):
                             bc_first_time = time_sec
                     elif unit_name in ['SCV', 'Probe', 'Drone']:
                         player_result["stats"]["workersCreated"] += 1
-                elif event.name == 'UnitInitEvent' and event.control_pid == player.pid:
-                    unit_name = getattr(event, 'unit_type_name', event.unit.name)
-                    time_sec = event.second
-                    
-                    if unit_name == 'NydusNetwork':
-                        nydus_count += 1
-                    elif unit_name == 'DarkShrine':
-                        if time_sec < dark_shrine_time:
-                            dark_shrine_time = time_sec
-                            
+                        
+                elif event.name == 'UnitDiedEvent' and event.unit.owner and event.unit.owner.pid == player.pid:
+                    if event.unit.name not in ['SCV', 'Probe', 'Drone', 'Overlord', 'OverlordTransport', 'MULE', 'Broodling', 'Larva', 'Egg', 'CreepTumor', 'AutoTurret']:
+                        if 'Structure' not in getattr(event.unit, 'flags', []):
+                            minute = event.second // 60
+                            # Find or create minute bucket
+                            bucket = next((b for b in player_result["telemetry"]["armyLost"] if b["m"] == minute), None)
+                            if bucket:
+                                bucket["c"] += 1
+                            else:
+                                player_result["telemetry"]["armyLost"].append({"m": minute, "c": 1})
+                        
             # Analyze player stats for supply block and unspent minerals
             stats_events = [e for e in replay.tracker_events if e.name == 'PlayerStatsEvent' and getattr(e, 'pid', None) == player.pid]
             if stats_events:
@@ -170,6 +210,19 @@ def analyze_replay(replay_path, my_name=None):
                 player_result["stats"]["supplyBlockTime"] = len(blocked_events) * 10
                 player_result["stats"]["avgUnspentMinerals"] = int(sum(e.minerals_current for e in stats_events) / len(stats_events))
                 player_result["stats"]["avgMineralIncome"] = int(sum(e.minerals_collection_rate for e in stats_events) / len(stats_events))
+                
+                # Telemetry extraction
+                for e in stats_events:
+                    if e.second % 60 < 15: # Take roughly 1 sample per minute (stats events occur every 10s)
+                        minute = e.second // 60
+                        if not any(t['m'] == minute for t in player_result["telemetry"]["economy"]):
+                            player_result["telemetry"]["economy"].append({
+                                "m": minute,
+                                "w": getattr(e, 'workers_active_count', 0),
+                                "s": getattr(e, 'food_used', 0),
+                                "min": getattr(e, 'minerals_collection_rate', 0),
+                                "gas": getattr(e, 'vespene_collection_rate', 0)
+                            })
                                     
             # 3. Expansion First Detection
             if first_exp_time < first_prod_time and first_exp_time < 300:
@@ -245,10 +298,10 @@ def analyze_replay(replay_path, my_name=None):
             if units.get('Archon', 0) >= 10: player_result["tags"].append("Mass Archon")
             
             # Terran
-            if units.get('Hellion', 0) + units.get('Hellbat', 0) >= 12: player_result["tags"].append("Mass Hellion")
-            if units.get('WidowMine', 0) >= 8: player_result["tags"].append("Mass Widow Mine")
+            if units.get('Hellion', 0) + units.get('Hellbat', 0) >= 15: player_result["tags"].append("Mass Hellion")
+            if units.get('WidowMine', 0) >= 10: player_result["tags"].append("Mass Widow Mine")
             if units.get('Cyclone', 0) >= 8: player_result["tags"].append("Mass Cyclone")
-            if units.get('Liberator', 0) >= 5: player_result["tags"].append("Mass Liberator")
+            if units.get('Liberator', 0) >= 7: player_result["tags"].append("Mass Liberator")
             if units.get('Banshee', 0) >= 5: player_result["tags"].append("Mass Banshee")
             if units.get('Ghost', 0) >= 8: player_result["tags"].append("Mass Ghost")
                                     
