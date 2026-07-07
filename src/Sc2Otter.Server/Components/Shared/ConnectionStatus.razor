@@ -9,13 +9,23 @@
 @implements IAsyncDisposable
 @rendermode InteractiveServer
 
-<div class="connection-status">
-    <span class="connection-dot @(IsConnected ? "connected" : "disconnected")"></span>
-    <span>@StatusText</span>
+<div class="connection-status-container" style="display: flex; flex-direction: column; gap: 8px;">
+    <div class="connection-status">
+        <span class="connection-dot @(IsConnected ? "connected" : "disconnected")"></span>
+        <span>@StatusText</span>
+    </div>
+    @if (IsConnected)
+    {
+        <div class="connection-status">
+            <span class="connection-dot @(IsSc2Running ? "connected" : "disconnected")"></span>
+            <span>@(IsSc2Running ? "StarCraft II Running" : "StarCraft II Offline")</span>
+        </div>
+    }
 </div>
 
 @code {
     private bool IsConnected { get; set; }
+    private bool IsSc2Running { get; set; }
     private string StatusText => IsConnected ? "Local Client Connected" : "Local Client Offline";
     private HubConnection? _hubConnection;
     private System.Timers.Timer? _timer;
@@ -50,17 +60,31 @@
             _timer?.Start();
         });
 
+        _hubConnection.On<GameStateChangedEvent>("GameStateChanged", (e) =>
+        {
+            IsConnected = true;
+            IsSc2Running = e.NewState != Sc2GameState.WaitingForSc2;
+            InvokeAsync(StateHasChanged);
+            
+            _timer?.Stop();
+            _timer?.Start();
+        });
+
         _timer = new System.Timers.Timer(10000);
         _timer.Elapsed += (s, e) =>
         {
             if (IsConnected)
             {
                 IsConnected = false;
+                IsSc2Running = false;
                 InvokeAsync(StateHasChanged);
             }
         };
 
         await _hubConnection.StartAsync();
+        
+        // Request an initial refresh to get the game state
+        await _hubConnection.InvokeAsync("RequestGameStateRefresh");
     }
 
     public async ValueTask DisposeAsync()
