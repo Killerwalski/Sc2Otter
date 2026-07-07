@@ -46,22 +46,41 @@ public class LlmAnalysisService
             return null;
         }
 
-        try
+        var provider = settings.AiProvider?.ToLowerInvariant() ?? "";
+        int maxRetries = 5;
+        int delayMs = 15000;
+
+        for (int i = 0; i < maxRetries; i++)
         {
-            var provider = settings.AiProvider?.ToLowerInvariant() ?? "";
-            return provider switch
+            try
             {
-                "openai" => await CallOpenAiAsync(settings, telemetryJson, ct),
-                "gemini" => await CallGeminiAsync(settings, telemetryJson, ct),
-                "claude" => await CallClaudeAsync(settings, telemetryJson, ct),
-                _ => null
-            };
+                return provider switch
+                {
+                    "openai" => await CallOpenAiAsync(settings, telemetryJson, ct),
+                    "gemini" => await CallGeminiAsync(settings, telemetryJson, ct),
+                    "claude" => await CallClaudeAsync(settings, telemetryJson, ct),
+                    _ => null
+                };
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+            {
+                if (i == maxRetries - 1)
+                {
+                    _logger.LogError(ex, "Failed to analyze telemetry using LLM API after multiple retries due to rate limiting.");
+                    return null;
+                }
+                
+                _logger.LogWarning($"Rate limited by LLM API (429). Retrying in {delayMs / 1000} seconds...");
+                await Task.Delay(delayMs, ct);
+                delayMs *= 2; // Exponential backoff (15s, 30s, 60s, 120s)
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to analyze telemetry using LLM API.");
+                return null;
+            }
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to analyze telemetry using LLM API.");
-            return null;
-        }
+        return null;
     }
 
     private async Task<PlaystyleSummary?> CallOpenAiAsync(UserSettings settings, string telemetry, CancellationToken ct)
@@ -102,6 +121,11 @@ public class LlmAnalysisService
     private async Task<PlaystyleSummary?> CallGeminiAsync(UserSettings settings, string telemetry, CancellationToken ct)
     {
         var model = string.IsNullOrWhiteSpace(settings.AiModel) ? "gemini-2.0-flash" : settings.AiModel.Trim();
+        if (model == "gemini-1.5-flash" || model == "gpt-1.5flash") 
+        {
+            model = "gemini-2.0-flash"; // Auto-upgrade deprecated or invalid config values
+        }
+        
         var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={settings.AiApiKey?.Trim()}";
 
         var requestBody = new
