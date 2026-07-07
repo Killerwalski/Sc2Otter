@@ -105,7 +105,7 @@ else
                                     <div class="note-tags" style="margin-top: 8px; display: flex; gap: 4px; flex-wrap: wrap;">
                                         @foreach (var tag in note.AutoTags)
                                         {
-                                            <span class="tag">@tag</span>
+                                            <span class="tag" title="@(TagDictionary.Get(tag)?.Description ?? "")">@tag</span>
                                         }
                                     </div>
                                 }

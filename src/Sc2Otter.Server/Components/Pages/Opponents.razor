@@ -69,7 +69,7 @@ else
                     <div class="tags-container">
                         @foreach (var ta in opp.TagAssignments)
                         {
-                            <span class="tag">@ta.Tag.Name@(ta.Count > 1 ? $" x{ta.Count}" : "")</span>
+                            <span class="tag" title="@(TagDictionary.Get(ta.Tag.Name)?.Description ?? "")">@ta.Tag.Name@(ta.Count > 1 ? $" x{ta.Count}" : "")</span>
                         }
                     </div>
                 }
