@@ -148,6 +148,8 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
             OpponentId = opponentId,
             Content = content,
             Source = source,
+            MatchRecordId = matchRecordId,
+            AutoTags = autoTags ?? new(),
             CreatedAt = DateTime.UtcNow
         };
         db.Notes.Add(note);
