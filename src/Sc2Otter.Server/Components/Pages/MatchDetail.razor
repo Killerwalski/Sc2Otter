@@ -44,16 +44,21 @@ else
         </div>
     </div>
     
-    @if (!string.IsNullOrEmpty(Match.PlaystyleSummary))
+    @if (RelatedMatches != null && RelatedMatches.Any(m => !string.IsNullOrEmpty(m.PlaystyleSummary)))
     {
-        <div class="stat-card" style="margin-bottom: 24px; padding: 16px; background-color: rgba(94, 92, 230, 0.05); border-color: rgba(94, 92, 230, 0.2);">
-            <div style="display: flex; align-items: center; margin-bottom: 8px;">
-                <span style="font-size: 1.2rem; margin-right: 8px;">âœ¨</span>
-                <span style="font-weight: 600; color: #5e5ce6;">Playstyle: @(Match.PlaystyleArchetype ?? "Unknown")</span>
+        <div style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px;">
+        @foreach (var m in RelatedMatches.Where(m => !string.IsNullOrEmpty(m.PlaystyleSummary)))
+        {
+            <div class="stat-card" style="padding: 16px; background-color: rgba(94, 92, 230, 0.05); border-color: rgba(94, 92, 230, 0.2);">
+                <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 1.2rem; margin-right: 8px;">&#x2728;</span>
+                    <span style="font-weight: 600; color: #5e5ce6;">@(m.Opponent.Name)'s Playstyle: @(m.PlaystyleArchetype ?? "Unknown")</span>
+                </div>
+                <div style="font-size: 0.95rem; color: #a0a0a5; line-height: 1.5;">
+                    @m.PlaystyleSummary
+                </div>
             </div>
-            <div style="font-size: 0.95rem; color: #a0a0a5; line-height: 1.5;">
-                @Match.PlaystyleSummary
-            </div>
+        }
         </div>
     }
 
@@ -521,6 +526,7 @@ else
 @code {
     [Parameter] public int Id { get; set; }
     private MatchRecord? Match { get; set; }
+    private List<MatchRecord>? RelatedMatches { get; set; }
     private Dictionary<string, int>? MyUnits;
     private Dictionary<string, int>? OpponentUnits;
     private List<PlayerAnalysisResult>? AllPlayers;
@@ -561,6 +567,7 @@ else
         Match = await Repo.GetMatchByIdAsync(Id);
         if (Match != null)
         {
+            RelatedMatches = await Repo.GetMatchesByDateAsync(Match.PlayedAt);
             if (!string.IsNullOrEmpty(Match.FullMatchData))
             {
                 var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };

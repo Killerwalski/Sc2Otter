@@ -145,6 +145,11 @@ public class HttpOpponentRepository(HttpClient http) : IOpponentRepository
         return Task.FromResult<MatchRecord?>(null);
     }
 
+    public Task<List<MatchRecord>> GetMatchesByDateAsync(DateTime playedAt, CancellationToken ct = default)
+    {
+        return Task.FromResult(new List<MatchRecord>());
+    }
+
     public async Task<(int TotalGames, int Wins, int Losses)> GetStatsAsync(int opponentId, CancellationToken ct = default)
     {
         return await http.GetFromJsonAsync<(int, int, int)>($"/api/opponents/{opponentId}/stats", ct);

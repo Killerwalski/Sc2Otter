@@ -388,6 +388,14 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
             .FirstOrDefaultAsync(m => m.Id == matchId && m.Opponent.UserId == UserId, ct);
     }
 
+    public async Task<List<MatchRecord>> GetMatchesByDateAsync(DateTime playedAt, CancellationToken ct = default)
+    {
+        return await db.MatchRecords
+            .Include(m => m.Opponent)
+            .Where(m => m.PlayedAt == playedAt && m.Opponent.UserId == UserId)
+            .ToListAsync(ct);
+    }
+
     public async Task<(int TotalGames, int Wins, int Losses)> GetStatsAsync(int opponentId, CancellationToken ct = default)
     {
         // Project the counts server-side with a single SQL query instead of loading all rows into memory.
