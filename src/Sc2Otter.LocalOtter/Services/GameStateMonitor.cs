@@ -289,7 +289,7 @@ public class GameStateMonitor : BackgroundService
 
             newNames.Add(player.Name);
 
-            var opponent = await repo.GetOrCreateAsync(player.Name, player.Race, seenAt: null, ct: ct);
+            var opponent = await repo.GetOrCreateAsync(player.Name, null, player.Race, seenAt: null, ct: ct);
             newIds[player.Name] = opponent.Id;
 
             // Load full details for display
