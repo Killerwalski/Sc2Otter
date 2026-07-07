@@ -267,10 +267,15 @@ def analyze_replay(replay_path, my_name=None):
             game_mode = None
             
         # sc2reader start_time has a bug with timezone offsets on some platforms.
-        # We use file modification time instead.
-        mtime = os.path.getmtime(replay_path)
-        dt = datetime.fromtimestamp(mtime, tz=timezone.utc)
-        start_dt = dt - timedelta(seconds=replay.length.seconds)
+        # replay.date gives us the UTC end time of the match
+        if hasattr(replay, 'date') and replay.date:
+            dt = replay.date.replace(tzinfo=timezone.utc)
+            start_dt = dt - timedelta(seconds=replay.length.seconds)
+        else:
+            # Fallback to file modification time
+            mtime = os.path.getmtime(replay_path)
+            dt = datetime.fromtimestamp(mtime, tz=timezone.utc)
+            start_dt = dt - timedelta(seconds=replay.length.seconds)
             
         result_json = {
             "success": True, 

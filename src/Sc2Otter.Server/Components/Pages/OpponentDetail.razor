@@ -85,7 +85,7 @@ else
                             {
                                 <div class="note-content">@note.Content</div>
                                 <div class="note-meta">
-                                    <span><LocalTime UtcTime="@note.CreatedAt" IncludeYear="true" /></span>
+                                    <span><LocalTime UtcTime="@(note.MatchRecord?.PlayedAt ?? note.CreatedAt)" IncludeYear="true" /></span>
                                     <span class="note-source">
                                         @if (note.Source == "voice") { <text>🎤 Voice</text> }
                                         else if (note.Source == "replay") { <text>🎮 Auto-Replay</text> }
