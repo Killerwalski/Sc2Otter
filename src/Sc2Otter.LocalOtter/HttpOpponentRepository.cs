@@ -65,7 +65,11 @@ public class HttpOpponentRepository(HttpClient http) : IOpponentRepository
     {
         var req = new AddNoteRequest { Content = content, Source = source, MatchRecordId = matchRecordId, AutoTags = autoTags ?? new() };
         var res = await http.PostAsJsonAsync($"/api/opponents/{opponentId}/notes", req, ct);
-        res.EnsureSuccessStatusCode();
+        if (!res.IsSuccessStatusCode)
+        {
+            var err = await res.Content.ReadAsStringAsync(ct);
+            throw new Exception($"Server returned {res.StatusCode}: {err}");
+        }
         return (await res.Content.ReadFromJsonAsync<OpponentNote>(cancellationToken: ct))!;
     }
 
