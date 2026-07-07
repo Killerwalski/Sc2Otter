@@ -34,12 +34,23 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
         if (opponent is null)
         {
             // Fallback: search by name and race if toonHandle didn't match (e.g. some local queries don't have toonHandle)
-            opponent = await db.Opponents
+            var query = db.Opponents
                 .Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag)
-                .FirstOrDefaultAsync(o =>
+                .Where(o =>
                     o.UserId == UserId &&
                     EF.Functions.ILike(o.Name, name) &&
-                    (race == null || o.Race == race), ct);
+                    (race == null || o.Race == race));
+
+            // If we have a ToonHandle but didn't find them above, it means this is a new player.
+            // We can only fall back to an existing opponent if they DON'T have a ToonHandle yet
+            // (so we can upgrade them). We must NOT match an opponent who already has a DIFFERENT ToonHandle.
+            if (!string.IsNullOrWhiteSpace(toonHandle))
+            {
+                query = query.Where(o => string.IsNullOrEmpty(o.ToonHandle));
+            }
+
+            // Always get the most recently seen match
+            opponent = await query.OrderByDescending(o => o.LastSeen).FirstOrDefaultAsync(ct);
         }
 
         return opponent;
