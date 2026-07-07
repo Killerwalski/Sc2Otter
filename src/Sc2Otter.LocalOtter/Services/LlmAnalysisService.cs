@@ -134,10 +134,10 @@ public class LlmAnalysisService
 
     private async Task<PlaystyleSummary?> CallGeminiAsync(UserSettings settings, string telemetry, CancellationToken ct)
     {
-        var model = string.IsNullOrWhiteSpace(settings.AiModel) ? "gemini-2.0-flash" : settings.AiModel.Trim();
-        if (model == "gemini-1.5-flash" || model == "gpt-1.5flash") 
+        var model = string.IsNullOrWhiteSpace(settings.AiModel) ? "gemini-3.5-flash" : settings.AiModel.Trim();
+        if (model == "gemini-1.5-flash" || model == "gpt-1.5flash" || model == "gemini-2.0-flash") 
         {
-            model = "gemini-2.0-flash"; // Auto-upgrade deprecated or invalid config values
+            model = "gemini-3.5-flash"; // Auto-upgrade deprecated or invalid config values
         }
         
         var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={settings.AiApiKey?.Trim()}";

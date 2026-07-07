@@ -75,9 +75,9 @@ if (!args.Contains("--run"))
                 var aiProvider = Console.ReadLine();
                 if (!string.IsNullOrWhiteSpace(aiProvider)) settings.AiProvider = aiProvider;
 
-                string modelExample = "e.g. gpt-4o-mini, gemini-2.0-flash";
+                string modelExample = "e.g. gpt-4o-mini, gemini-3.5-flash";
                 if (settings.AiProvider?.Equals("Gemini", StringComparison.OrdinalIgnoreCase) == true)
-                    modelExample = "e.g. gemini-2.0-flash, gemini-2.5-pro";
+                    modelExample = "e.g. gemini-3.5-flash, gemini-3.5-pro";
                 else if (settings.AiProvider?.Equals("OpenAI", StringComparison.OrdinalIgnoreCase) == true)
                     modelExample = "e.g. gpt-4o-mini, gpt-4o";
                 else if (settings.AiProvider?.Equals("Claude", StringComparison.OrdinalIgnoreCase) == true)
