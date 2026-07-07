@@ -100,8 +100,15 @@ public static class ApiEndpoints
 
         group.MapPost("/{id}/notes", async (int id, [FromBody] AddNoteRequest req, IOpponentRepository repo, CancellationToken ct) =>
         {
-            var note = await repo.AddNoteAsync(id, req.Content, req.Source ?? "keyboard", req.MatchRecordId, req.AutoTags, ct);
-            return Results.Ok(note);
+            try
+            {
+                var note = await repo.AddNoteAsync(id, req.Content, req.Source ?? "keyboard", req.MatchRecordId, req.AutoTags, ct);
+                return Results.Ok(note);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(detail: ex.ToString(), statusCode: 500);
+            }
         });
 
         group.MapPut("/notes/{noteId}", async (int noteId, [FromBody] UpdateNoteRequest req, IOpponentRepository repo, CancellationToken ct) =>
