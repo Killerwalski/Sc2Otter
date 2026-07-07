@@ -84,28 +84,25 @@ public class BulkReplayScannerService : BackgroundService
 
             _logger.LogInformation("Found {Count} replays to scan.", files.Count);
 
-            int count = 0;
-            foreach (var file in files)
-            {
-                if (ct.IsCancellationRequested) break;
-
-                _logger.LogInformation("Scanning ({Index}/{Total}): {File}", ++count, files.Count, file.Name);
-
-                using var scope = _scopeFactory.CreateScope();
-                var analyzer = scope.ServiceProvider.GetRequiredService<ReplayAnalysisService>();
-                
-                await analyzer.AnalyzeReplayAsync(file.FullName, ct);
-                
-                // Report progress
-                await _hubClient.PushBulkScanProgressAsync(count, files.Count, ct);
-                
-                // Sleep slightly to prevent maxing out the CPU completely
-                await Task.Delay(500, ct);
-            }
-
             if (files.Count == 0)
             {
                 await _hubClient.PushBulkScanProgressAsync(0, 0, ct);
+            }
+            else
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var analyzer = scope.ServiceProvider.GetRequiredService<ReplayAnalysisService>();
+
+                int count = 0;
+                await analyzer.AnalyzeReplaysBulkAsync(files.Select(f => f.FullName), async (path, success) =>
+                {
+                    count++;
+                    _logger.LogInformation("Scanned ({Index}/{Total}): {File}", count, files.Count, Path.GetFileName(path));
+                    await _hubClient.PushBulkScanProgressAsync(count, files.Count, ct);
+                    
+                    // Yield to prevent complete thread starvation, but much faster than previous 500ms delay
+                    await Task.Yield(); 
+                }, ct);
             }
 
             _logger.LogInformation("Bulk replay import completed!");

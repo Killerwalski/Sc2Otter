@@ -9,8 +9,7 @@ def analyze_replay(replay_path, my_name=None):
         replay = sc2reader.load_replay(replay_path, load_level=3)
         
         if replay.length.seconds < 180:
-            print(json.dumps({"success": True, "skipped": True, "message": "Game too short"}))
-            return
+            return {"success": True, "skipped": True, "message": "Game too short"}
             
         results = []
         
@@ -253,22 +252,36 @@ def analyze_replay(replay_path, my_name=None):
         else:
             game_mode = None
             
-        print(json.dumps({
+        result_json = {
             "success": True, 
             "mapName": replay.map_name,
             "startTime": replay.start_time.isoformat(),
             "gameMode": game_mode,
             "data": results
-        }))
+        }
+        return result_json
         
     except Exception as e:
-        print(json.dumps({"success": False, "error": str(e)}))
-        sys.exit(1)
+        return {"success": False, "error": str(e)}
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print(json.dumps({"success": False, "error": "Usage: python replay_analyzer.py <replay_path>"}))
+        print(json.dumps({"success": False, "error": "Usage: python replay_analyzer.py <replay_path> [--daemon]"}))
         sys.exit(1)
         
-    replay_path = sys.argv[1]
-    analyze_replay(replay_path)
+    if "--daemon" in sys.argv:
+        # Run in daemon mode, reading paths from stdin
+        for line in sys.stdin:
+            path = line.strip()
+            if not path:
+                continue
+            if path.lower() == "exit":
+                break
+                
+            res = analyze_replay(path)
+            print(json.dumps(res), flush=True)
+    else:
+        # Single file mode
+        replay_path = sys.argv[1]
+        res = analyze_replay(replay_path)
+        print(json.dumps(res))

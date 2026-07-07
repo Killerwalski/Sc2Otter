@@ -109,107 +109,7 @@ public class ReplayAnalysisService
 
             if (result.Data != null)
             {
-                using var scope = _scopeFactory.CreateScope();
-                var repo = scope.ServiceProvider.GetRequiredService<IOpponentRepository>();
-                
-                var namesToIgnore = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                if (!string.IsNullOrWhiteSpace(myName))
-                {
-                    foreach (var name in myName.Split(',', StringSplitOptions.RemoveEmptyEntries))
-                    {
-                        namesToIgnore.Add(name.Trim());
-                    }
-                }
-
-                var myResult = result.Data.FirstOrDefault(p => namesToIgnore.Contains(p.Name));
-                if (myResult != null)
-                {
-                    myResult.IsMe = true;
-                }
-
-                foreach (var playerResult in result.Data)
-                {
-                    if (namesToIgnore.Contains(playerResult.Name))
-                    {
-                        _logger.LogInformation("Skipping analysis save for ignored player: {Name}", playerResult.Name);
-                        continue;
-                    }
-
-                    var opponent = await repo.GetOrCreateAsync(playerResult.Name, playerResult.ToonHandle, playerResult.Race, result.StartTime, ct);
-                    
-                    bool alreadyAnalyzed = await repo.IsMatchAlreadyAnalyzedAsync(opponent.Id, result.StartTime ?? DateTime.UtcNow, ct);
-                    
-                    if (!alreadyAnalyzed)
-                    {
-                        foreach (var tag in playerResult.Tags)
-                        {
-                            await repo.AddTagAsync(opponent.Id, tag, ct);
-                            _logger.LogInformation("Added tag '{Tag}' to {Player}", tag, playerResult.Name);
-                        }
-
-                    // Moved up to get matchId
-                    }
-                    
-                    var ourResult = MatchResult.Unknown;
-                    if (!string.IsNullOrWhiteSpace(playerResult.Result))
-                    {
-                        var opponentWon = playerResult.Result.Equals("Win", StringComparison.OrdinalIgnoreCase);
-                        ourResult = opponentWon ? MatchResult.Loss : MatchResult.Win;
-                    }
-                    
-                    var fullMatchDataStr = JsonSerializer.Serialize(result.Data);
-                    
-                    var req = new RecordMatchRequest {
-                        Result = ourResult,
-                        MapName = result.MapName,
-                        MyRace = myResult?.Race,
-                        OpponentRace = playerResult.Race,
-                        GameMode = result.GameMode,
-                        PlayedAt = result.StartTime,
-                        FullMatchData = fullMatchDataStr
-                    };
-
-                    if (myResult?.Stats != null)
-                    {
-                        req.MyWorkersCreated = myResult.Stats.WorkersCreated;
-                        req.MySupplyBlockTime = myResult.Stats.SupplyBlockTime;
-                        req.MyAvgUnspentMinerals = myResult.Stats.AvgUnspentMinerals;
-                        req.MyAvgMineralIncome = myResult.Stats.AvgMineralIncome;
-                    }
-                    if (myResult?.UnitsMade != null)
-                    {
-                        req.MyUnitsMade = JsonSerializer.Serialize(myResult.UnitsMade);
-                    }
-                    if (playerResult.Stats != null)
-                    {
-                        req.OpponentWorkersCreated = playerResult.Stats.WorkersCreated;
-                        req.OpponentSupplyBlockTime = playerResult.Stats.SupplyBlockTime;
-                        req.OpponentAvgUnspentMinerals = playerResult.Stats.AvgUnspentMinerals;
-                        req.OpponentAvgMineralIncome = playerResult.Stats.AvgMineralIncome;
-                    }
-                    if (playerResult.UnitsMade != null)
-                    {
-                        req.OpponentUnitsMade = JsonSerializer.Serialize(playerResult.UnitsMade);
-                    }
-
-                    var matchRecord = await repo.RecordMatchAsync(opponent.Id, req, ct);
-
-                    if (!alreadyAnalyzed)
-                    {
-                        if (playerResult.Notes.Any())
-                        {
-                            var noteLines = playerResult.Notes.Select(n => $"- {n}");
-                            var fullNote = $"[Auto-Replay]\n{string.Join("\n", noteLines)}";
-                            await repo.AddNoteAsync(opponent.Id, fullNote, "replay", matchRecord.Id, playerResult.Tags, ct);
-                            _logger.LogInformation("Added auto-note to {Player}: {Note}", playerResult.Name, fullNote);
-                        }
-                        
-                        if (!string.IsNullOrWhiteSpace(result.GameMode))
-                        {
-                            await repo.AddTagAsync(opponent.Id, result.GameMode, ct);
-                        }
-                    }
-                }
+                await ProcessResultDataAsync(result, myName, ct);
                 return true;
             }
         }
@@ -250,5 +150,206 @@ public class ReplayAnalysisService
         public int SupplyBlockTime { get; set; }
         public int AvgUnspentMinerals { get; set; }
         public int AvgMineralIncome { get; set; }
+    }
+
+    public async Task AnalyzeReplaysBulkAsync(IEnumerable<string> replayPaths, Func<string, bool, Task> onProgress, CancellationToken ct = default)
+    {
+        var myName = _settingsService.Current.MySc2Name;
+        _logger.LogInformation("Starting bulk Python sidecar analysis in daemon mode...");
+
+        var processStartInfo = new ProcessStartInfo
+        {
+            FileName = "python",
+            ArgumentList = { _pythonScriptPath, "--daemon" },
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        using var process = Process.Start(processStartInfo);
+        if (process == null)
+        {
+            _logger.LogError("Failed to start python process in daemon mode.");
+            return;
+        }
+
+        try
+        {
+            foreach (var replayPath in replayPaths)
+            {
+                if (ct.IsCancellationRequested) break;
+
+                if (!File.Exists(replayPath))
+                {
+                    _logger.LogWarning("Replay file not found: {Path}", replayPath);
+                    await onProgress(replayPath, false);
+                    continue;
+                }
+
+                await process.StandardInput.WriteLineAsync(replayPath);
+                await process.StandardInput.FlushAsync();
+
+                var outputTask = process.StandardOutput.ReadLineAsync(ct).AsTask();
+                var completedTask = await Task.WhenAny(outputTask, Task.Delay(15000, ct));
+
+                if (completedTask != outputTask)
+                {
+                    _logger.LogError("Python process timed out while analyzing {Path}", replayPath);
+                    await onProgress(replayPath, false);
+                    continue;
+                }
+
+                var outputLine = await outputTask;
+                if (string.IsNullOrWhiteSpace(outputLine))
+                {
+                    _logger.LogError("Python process closed unexpectedly while analyzing {Path}", replayPath);
+                    await onProgress(replayPath, false);
+                    continue;
+                }
+
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var result = JsonSerializer.Deserialize<ReplayAnalysisResult>(outputLine, options);
+
+                if (result != null && result.StartTime.HasValue && result.StartTime.Value.Kind == DateTimeKind.Unspecified)
+                {
+                    result.StartTime = DateTime.SpecifyKind(result.StartTime.Value, DateTimeKind.Utc);
+                }
+
+                if (result == null || !result.Success)
+                {
+                    _logger.LogError("Python script returned failure for {Path}: {Error}", replayPath, result?.Error);
+                    await onProgress(replayPath, false);
+                    continue;
+                }
+
+                if (result.Data != null)
+                {
+                    await ProcessResultDataAsync(result, myName, ct);
+                }
+                
+                await onProgress(replayPath, true);
+            }
+        }
+        finally
+        {
+            try
+            {
+                await process.StandardInput.WriteLineAsync("exit");
+                await process.StandardInput.FlushAsync();
+                
+                using var cts = new CancellationTokenSource(2000);
+                await process.WaitForExitAsync(cts.Token);
+            }
+            catch { }
+            
+            if (!process.HasExited)
+            {
+                process.Kill();
+            }
+        }
+    }
+
+    private async Task ProcessResultDataAsync(ReplayAnalysisResult result, string? myName, CancellationToken ct)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var repo = scope.ServiceProvider.GetRequiredService<IOpponentRepository>();
+        
+        var namesToIgnore = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(myName))
+        {
+            foreach (var name in myName.Split(',', StringSplitOptions.RemoveEmptyEntries))
+            {
+                namesToIgnore.Add(name.Trim());
+            }
+        }
+
+        var myResult = result.Data!.FirstOrDefault(p => namesToIgnore.Contains(p.Name));
+        if (myResult != null)
+        {
+            myResult.IsMe = true;
+        }
+
+        foreach (var playerResult in result.Data!)
+        {
+            if (namesToIgnore.Contains(playerResult.Name))
+            {
+                continue;
+            }
+
+            var opponent = await repo.GetOrCreateAsync(playerResult.Name, playerResult.ToonHandle, playerResult.Race, result.StartTime, ct);
+            
+            bool alreadyAnalyzed = await repo.IsMatchAlreadyAnalyzedAsync(opponent.Id, result.StartTime ?? DateTime.UtcNow, ct);
+            
+            if (!alreadyAnalyzed)
+            {
+                foreach (var tag in playerResult.Tags)
+                {
+                    await repo.AddTagAsync(opponent.Id, tag, ct);
+                    _logger.LogInformation("Added tag '{Tag}' to {Player}", tag, playerResult.Name);
+                }
+            }
+            
+            var ourResult = MatchResult.Unknown;
+            if (!string.IsNullOrWhiteSpace(playerResult.Result))
+            {
+                var opponentWon = playerResult.Result.Equals("Win", StringComparison.OrdinalIgnoreCase);
+                ourResult = opponentWon ? MatchResult.Loss : MatchResult.Win;
+            }
+            
+            var fullMatchDataStr = JsonSerializer.Serialize(result.Data);
+            
+            var req = new RecordMatchRequest {
+                Result = ourResult,
+                MapName = result.MapName,
+                MyRace = myResult?.Race,
+                OpponentRace = playerResult.Race,
+                GameMode = result.GameMode,
+                PlayedAt = result.StartTime,
+                FullMatchData = fullMatchDataStr
+            };
+
+            if (myResult?.Stats != null)
+            {
+                req.MyWorkersCreated = myResult.Stats.WorkersCreated;
+                req.MySupplyBlockTime = myResult.Stats.SupplyBlockTime;
+                req.MyAvgUnspentMinerals = myResult.Stats.AvgUnspentMinerals;
+                req.MyAvgMineralIncome = myResult.Stats.AvgMineralIncome;
+            }
+            if (myResult?.UnitsMade != null)
+            {
+                req.MyUnitsMade = JsonSerializer.Serialize(myResult.UnitsMade);
+            }
+            if (playerResult.Stats != null)
+            {
+                req.OpponentWorkersCreated = playerResult.Stats.WorkersCreated;
+                req.OpponentSupplyBlockTime = playerResult.Stats.SupplyBlockTime;
+                req.OpponentAvgUnspentMinerals = playerResult.Stats.AvgUnspentMinerals;
+                req.OpponentAvgMineralIncome = playerResult.Stats.AvgMineralIncome;
+            }
+            if (playerResult.UnitsMade != null)
+            {
+                req.OpponentUnitsMade = JsonSerializer.Serialize(playerResult.UnitsMade);
+            }
+
+            var matchRecord = await repo.RecordMatchAsync(opponent.Id, req, ct);
+
+            if (!alreadyAnalyzed)
+            {
+                if (playerResult.Notes.Any())
+                {
+                    var noteLines = playerResult.Notes.Select(n => $"- {n}");
+                    var fullNote = $"[Auto-Replay]\n{string.Join("\n", noteLines)}";
+                    await repo.AddNoteAsync(opponent.Id, fullNote, "replay", matchRecord.Id, playerResult.Tags, ct);
+                    _logger.LogInformation("Added auto-note to {Player}: {Note}", playerResult.Name, fullNote);
+                }
+                
+                if (!string.IsNullOrWhiteSpace(result.GameMode))
+                {
+                    await repo.AddTagAsync(opponent.Id, result.GameMode, ct);
+                }
+            }
+        }
     }
 }
