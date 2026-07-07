@@ -16,7 +16,7 @@ public class HttpOpponentRepository(HttpClient http) : IOpponentRepository
         return await http.GetFromJsonAsync<Opponent>($"/api/opponents/search?query={Uri.EscapeDataString(name)}", ct);
     }
 
-    public async Task<Opponent?> FindByToonHandleOrNameAsync(string name, string? toonHandle, CancellationToken ct = default)
+    public async Task<Opponent?> FindByToonHandleOrNameAsync(string name, string? toonHandle, string? race = null, CancellationToken ct = default)
     {
         return await FindByNameAsync(name, ct);
     }

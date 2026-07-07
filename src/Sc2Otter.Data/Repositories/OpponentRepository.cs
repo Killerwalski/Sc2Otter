@@ -14,7 +14,7 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
             .FirstOrDefaultAsync(o => o.UserId == UserId && o.Name.ToLower() == name.ToLower(), ct);
     }
 
-    public async Task<Opponent?> FindByToonHandleOrNameAsync(string name, string? toonHandle, CancellationToken ct = default)
+    public async Task<Opponent?> FindByToonHandleOrNameAsync(string name, string? toonHandle, string? race = null, CancellationToken ct = default)
     {
         Opponent? opponent = null;
         
@@ -39,7 +39,7 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
     public async Task<Opponent> GetOrCreateAsync(string name, string? toonHandle, string? race, DateTime? seenAt = null, CancellationToken ct = default)
     {
         var time = seenAt ?? DateTime.UtcNow;
-        var opponent = await FindByToonHandleOrNameAsync(name, toonHandle, ct);
+        var opponent = await FindByToonHandleOrNameAsync(name, toonHandle, race, ct);
         
         if (opponent is not null)
         {
