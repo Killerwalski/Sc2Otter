@@ -53,7 +53,9 @@ public class HttpOpponentRepository(HttpClient http) : IOpponentRepository
 
     public async Task<List<Opponent>> SearchAsync(string? query = null, string? raceFilter = null, string? tagFilter = null, string? modeFilter = null, CancellationToken ct = default)
     {
-        return await http.GetFromJsonAsync<List<Opponent>>($"/api/opponents/search?query={query}&raceFilter={raceFilter}", ct) ?? [];
+        // All query params must be URL-encoded to handle names with spaces, special chars, etc.
+        var url = $"/api/opponents/search?query={Uri.EscapeDataString(query ?? "")}&raceFilter={Uri.EscapeDataString(raceFilter ?? "")}";
+        return await http.GetFromJsonAsync<List<Opponent>>(url, ct) ?? [];
     }
 
     public async Task<List<Opponent>> GetRecentAsync(int count = 10, CancellationToken ct = default)
@@ -97,29 +99,30 @@ public class HttpOpponentRepository(HttpClient http) : IOpponentRepository
 
     public async Task<List<OpponentTag>> GetAllTagsAsync(CancellationToken ct = default)
     {
-        return await http.GetFromJsonAsync<List<OpponentTag>>("api/tags", ct) ?? [];
+        // Fixed: was missing the leading '/' which caused requests to resolve relative to base address incorrectly.
+        return await http.GetFromJsonAsync<List<OpponentTag>>("/api/tags", ct) ?? [];
     }
 
     public async Task<bool> IsMatchAlreadyAnalyzedAsync(int opponentId, DateTime playedAt, CancellationToken ct = default)
     {
-        // For LocalOtter, we could query the server, but the easiest way is to just fetch the opponent's recent matches
-        // and see if there's a duplicate. Alternatively we could add a dedicated endpoint.
-        // For now, we can just fetch the MatchRecords if they exist, or since it's just to prevent double-tagging on bulk scan,
-        // we can fetch the opponent details.
+        // For LocalOtter we fetch the opponent details and check client-side since there is no
+        // dedicated server endpoint for this check. This is only called during bulk scan so the
+        // extra round-trip is acceptable.
         try
         {
             var opp = await GetWithDetailsAsync(opponentId, ct);
             if (opp == null) return false;
-            
+
             var exactDuplicate = opp.MatchRecords.FirstOrDefault(m => m.PlayedAt == playedAt);
             if (exactDuplicate != null && exactDuplicate.FullMatchData != null) return true;
-            
-            var fuzzy = opp.MatchRecords.FirstOrDefault(m => m.FullMatchData != null && Math.Abs((playedAt - m.PlayedAt).TotalMinutes) < 60);
+
+            var fuzzy = opp.MatchRecords.FirstOrDefault(m =>
+                m.FullMatchData != null && Math.Abs((playedAt - m.PlayedAt).TotalMinutes) < 60);
             if (fuzzy != null) return true;
         }
         catch
         {
-            // Ignore
+            // Ignore connectivity errors — safest to proceed and let the server deduplicate.
         }
         return false;
     }
@@ -134,10 +137,12 @@ public class HttpOpponentRepository(HttpClient http) : IOpponentRepository
         }
         return await res.Content.ReadFromJsonAsync<MatchRecord>(cancellationToken: ct) ?? throw new Exception();
     }
-    
-    public async Task<MatchRecord?> GetMatchByIdAsync(int matchId, CancellationToken ct = default)
+
+    public Task<MatchRecord?> GetMatchByIdAsync(int matchId, CancellationToken ct = default)
     {
-        return null;
+        // Not implemented — LocalOtter never needs to fetch a single match by ID directly.
+        // Match detail is accessed server-side via the Blazor UI.
+        return Task.FromResult<MatchRecord?>(null);
     }
 
     public async Task<(int TotalGames, int Wins, int Losses)> GetStatsAsync(int opponentId, CancellationToken ct = default)
@@ -145,7 +150,9 @@ public class HttpOpponentRepository(HttpClient http) : IOpponentRepository
         return await http.GetFromJsonAsync<(int, int, int)>($"/api/opponents/{opponentId}/stats", ct);
     }
 
-    public async Task WipeDatabaseAsync(CancellationToken ct = default)
+    public Task WipeDatabaseAsync(CancellationToken ct = default)
     {
+        // Wipe is only available via the server-side admin UI — not exposed to LocalOtter.
+        return Task.CompletedTask;
     }
 }

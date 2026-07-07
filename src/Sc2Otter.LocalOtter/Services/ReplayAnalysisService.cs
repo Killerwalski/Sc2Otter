@@ -12,6 +12,9 @@ public class ReplayAnalysisService
     private readonly ILogger<ReplayAnalysisService> _logger;
     private readonly string _pythonScriptPath;
 
+    // Shared options instance — avoids allocating a new object on every replay analysis call.
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+
     public ReplayAnalysisService(
         IServiceScopeFactory scopeFactory,
         SettingsService settingsService,
@@ -29,23 +32,28 @@ public class ReplayAnalysisService
             stream.CopyTo(fileStream);
         }
 
-        try
+        // Fire-and-forget pip install — doesn't block the constructor or startup.
+        _ = Task.Run(async () =>
         {
-            var pipProcess = Process.Start(new ProcessStartInfo
+            try
             {
-                FileName = "python",
-                ArgumentList = { "-m", "pip", "install", "sc2reader" },
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            });
-            pipProcess?.WaitForExit();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to automatically install sc2reader via pip. Please ensure Python is installed on your system.");
-        }
+                var pipProcess = Process.Start(new ProcessStartInfo
+                {
+                    FileName = "python",
+                    ArgumentList = { "-m", "pip", "install", "sc2reader" },
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+                if (pipProcess != null)
+                    await pipProcess.WaitForExitAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to automatically install sc2reader via pip. Please ensure Python is installed on your system.");
+            }
+        });
     }
 
     public async Task<bool> AnalyzeReplayAsync(string replayPath, CancellationToken ct = default)
@@ -82,7 +90,7 @@ public class ReplayAnalysisService
             var errorTask = process.StandardError.ReadToEndAsync(ct);
 
             await process.WaitForExitAsync(ct);
-            
+
             var output = await outputTask;
             var error = await errorTask;
 
@@ -92,14 +100,8 @@ public class ReplayAnalysisService
                 return false;
             }
 
-            // Parse output
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var result = JsonSerializer.Deserialize<ReplayAnalysisResult>(output, options);
-
-            if (result != null && result.StartTime.HasValue && result.StartTime.Value.Kind == DateTimeKind.Unspecified)
-            {
-                result.StartTime = DateTime.SpecifyKind(result.StartTime.Value, DateTimeKind.Utc);
-            }
+            var result = JsonSerializer.Deserialize<ReplayAnalysisResult>(output, JsonOptions);
+            FixStartTimeKind(result);
 
             if (result == null || !result.Success)
             {
@@ -209,13 +211,8 @@ public class ReplayAnalysisService
                     continue;
                 }
 
-                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                var result = JsonSerializer.Deserialize<ReplayAnalysisResult>(outputLine, options);
-
-                if (result != null && result.StartTime.HasValue && result.StartTime.Value.Kind == DateTimeKind.Unspecified)
-                {
-                    result.StartTime = DateTime.SpecifyKind(result.StartTime.Value, DateTimeKind.Utc);
-                }
+                var result = JsonSerializer.Deserialize<ReplayAnalysisResult>(outputLine, JsonOptions);
+                FixStartTimeKind(result);
 
                 if (result == null || !result.Success)
                 {
@@ -228,7 +225,7 @@ public class ReplayAnalysisService
                 {
                     await ProcessResultDataAsync(result, myName, ct);
                 }
-                
+
                 await onProgress(replayPath, true);
             }
         }
@@ -238,12 +235,12 @@ public class ReplayAnalysisService
             {
                 await process.StandardInput.WriteLineAsync("exit");
                 await process.StandardInput.FlushAsync();
-                
+
                 using var cts = new CancellationTokenSource(2000);
                 await process.WaitForExitAsync(cts.Token);
             }
             catch { }
-            
+
             if (!process.HasExited)
             {
                 process.Kill();
@@ -251,11 +248,23 @@ public class ReplayAnalysisService
         }
     }
 
+    /// <summary>
+    /// Ensures the StartTime datetime kind is set to UTC. sc2reader returns unspecified kind;
+    /// EF Core / Npgsql requires UTC for timestamp columns.
+    /// </summary>
+    private static void FixStartTimeKind(ReplayAnalysisResult? result)
+    {
+        if (result != null && result.StartTime.HasValue && result.StartTime.Value.Kind == DateTimeKind.Unspecified)
+        {
+            result.StartTime = DateTime.SpecifyKind(result.StartTime.Value, DateTimeKind.Utc);
+        }
+    }
+
     private async Task ProcessResultDataAsync(ReplayAnalysisResult result, string? myName, CancellationToken ct)
     {
         using var scope = _scopeFactory.CreateScope();
         var repo = scope.ServiceProvider.GetRequiredService<IOpponentRepository>();
-        
+
         var namesToIgnore = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (!string.IsNullOrWhiteSpace(myName))
         {
@@ -279,9 +288,9 @@ public class ReplayAnalysisService
             }
 
             var opponent = await repo.GetOrCreateAsync(playerResult.Name, playerResult.ToonHandle, playerResult.Race, result.StartTime, ct);
-            
+
             bool alreadyAnalyzed = await repo.IsMatchAlreadyAnalyzedAsync(opponent.Id, result.StartTime ?? DateTime.UtcNow, ct);
-            
+
             if (!alreadyAnalyzed)
             {
                 foreach (var tag in playerResult.Tags)
@@ -290,17 +299,18 @@ public class ReplayAnalysisService
                     _logger.LogInformation("Added tag '{Tag}' to {Player}", tag, playerResult.Name);
                 }
             }
-            
+
             var ourResult = MatchResult.Unknown;
             if (!string.IsNullOrWhiteSpace(playerResult.Result))
             {
                 var opponentWon = playerResult.Result.Equals("Win", StringComparison.OrdinalIgnoreCase);
                 ourResult = opponentWon ? MatchResult.Loss : MatchResult.Win;
             }
-            
+
             var fullMatchDataStr = JsonSerializer.Serialize(result.Data);
-            
-            var req = new RecordMatchRequest {
+
+            var req = new RecordMatchRequest
+            {
                 Result = ourResult,
                 MapName = result.MapName,
                 MyRace = myResult?.Race,
@@ -344,7 +354,7 @@ public class ReplayAnalysisService
                     await repo.AddNoteAsync(opponent.Id, fullNote, "replay", matchRecord.Id, playerResult.Tags, ct);
                     _logger.LogInformation("Added auto-note to {Player}: {Note}", playerResult.Name, fullNote);
                 }
-                
+
                 if (!string.IsNullOrWhiteSpace(result.GameMode))
                 {
                     await repo.AddTagAsync(opponent.Id, result.GameMode, ct);

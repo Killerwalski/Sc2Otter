@@ -6,37 +6,61 @@ using Sc2Otter.Core.Interfaces;
 
 public class ScoutHub(IServiceScopeFactory scopeFactory, ILogger<ScoutHub> logger) : Hub
 {
+    // -------------------------------------------------------------------------
+    // User resolution
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Resolves the current user ID from either the cookie claim or the X-Sync-Key / syncKey
+    /// query-string header. The result is cached in Context.Items for the lifetime of the
+    /// connection so that subsequent hub method calls don't repeat the DB lookup.
+    /// </summary>
     private async Task<int?> GetUserIdAsync()
     {
+        // Return cached result for this connection if already resolved.
+        if (Context.Items.TryGetValue("ResolvedUserId", out var cached))
+            return cached as int?;
+
         var httpContext = Context.GetHttpContext();
         if (httpContext == null) return null;
 
+        // 1. Cookie / OAuth claim
         var claim = httpContext.User?.FindFirst("Sc2OtterUserId");
         if (claim != null && int.TryParse(claim.Value, out var claimId))
         {
+            Context.Items["ResolvedUserId"] = (int?)claimId;
             return claimId;
         }
 
+        // 2. X-Sync-Key header or syncKey query-string (used by LocalOtter)
         string? syncKey = null;
         if (httpContext.Request.Headers.TryGetValue("X-Sync-Key", out var syncKeyValues))
-        {
             syncKey = syncKeyValues.FirstOrDefault();
-        }
-        
+
         if (string.IsNullOrEmpty(syncKey) && httpContext.Request.Query.TryGetValue("syncKey", out var syncKeyQuery))
-        {
             syncKey = syncKeyQuery.FirstOrDefault();
-        }
 
         if (!string.IsNullOrEmpty(syncKey))
         {
             using var scope = scopeFactory.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<Sc2Otter.Data.ScoutDbContext>();
-            var user = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(db.Users, u => u.SyncKey == syncKey);
-            if (user != null) return user.Id;
+            var user = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+                .FirstOrDefaultAsync(db.Users, u => u.SyncKey == syncKey);
+            if (user != null)
+            {
+                Context.Items["ResolvedUserId"] = (int?)user.Id;
+                return user.Id;
+            }
         }
+
+        // Cache a negative result too, so we don't re-hit the DB on unauthenticated connections.
+        Context.Items["ResolvedUserId"] = (int?)null;
         return null;
     }
+
+    // -------------------------------------------------------------------------
+    // Note methods (Web UI ↔ Server)
+    // -------------------------------------------------------------------------
 
     public async Task SaveNote(int opponentId, string content, string source = "keyboard")
     {
@@ -50,7 +74,6 @@ public class ScoutHub(IServiceScopeFactory scopeFactory, ILogger<ScoutHub> logge
         var noteDto = new OpponentNoteDto(note.Id, note.Content, note.CreatedAt, note.Source);
 
         logger.LogInformation("Note saved for opponent {OpponentId}: {Content}", opponentId, content);
-
         await Clients.Group($"User_{userId.Value}").SendAsync("NoteAdded", opponentId, noteDto);
     }
 
@@ -78,6 +101,10 @@ public class ScoutHub(IServiceScopeFactory scopeFactory, ILogger<ScoutHub> logge
         await Clients.Group($"User_{userId.Value}").SendAsync("NoteDeleted", noteId);
     }
 
+    // -------------------------------------------------------------------------
+    // Tag methods (Web UI ↔ Server)
+    // -------------------------------------------------------------------------
+
     public async Task AddTag(int opponentId, string tagName)
     {
         var userId = await GetUserIdAsync();
@@ -102,19 +129,23 @@ public class ScoutHub(IServiceScopeFactory scopeFactory, ILogger<ScoutHub> logge
         await Clients.Group($"User_{userId.Value}").SendAsync("TagRemoved", opponentId, tagName);
     }
 
+    // -------------------------------------------------------------------------
+    // Bulk detail fetch — used by the overlay to pre-load multiple opponents
+    // -------------------------------------------------------------------------
+
     public async Task<List<OpponentDetectedEvent>> GetOpponentDetails(List<int> opponentIds)
     {
         using var scope = scopeFactory.CreateScope();
         var repo = scope.ServiceProvider.GetRequiredService<IOpponentRepository>();
 
-        var results = new List<OpponentDetectedEvent>();
-        foreach (var id in opponentIds)
+        // Fetch all opponents in parallel — safe because each call uses its own scope.
+        var tasks = opponentIds.Select(async id =>
         {
             var opponent = await repo.GetWithDetailsAsync(id);
-            if (opponent is null) continue;
+            if (opponent is null) return null;
 
             var stats = await repo.GetStatsAsync(id);
-            results.Add(new OpponentDetectedEvent(
+            return new OpponentDetectedEvent(
                 OpponentId: opponent.Id,
                 Name: opponent.Name,
                 Race: opponent.Race,
@@ -125,12 +156,17 @@ public class ScoutHub(IServiceScopeFactory scopeFactory, ILogger<ScoutHub> logge
                 Wins: stats.Wins,
                 Losses: stats.Losses,
                 Mmr: opponent.Mmr,
-                League: opponent.League));
-        }
-        return results;
+                League: opponent.League);
+        });
+
+        var results = await Task.WhenAll(tasks);
+        return results.Where(r => r is not null).ToList()!;
     }
 
-    // --- Methods for LocalClient to push state to Web UI ---
+    // -------------------------------------------------------------------------
+    // Push methods (LocalOtter → Web)
+    // -------------------------------------------------------------------------
+
     public async Task PushGameState(GameStateChangedEvent e)
     {
         var userId = await GetUserIdAsync();
@@ -148,17 +184,17 @@ public class ScoutHub(IServiceScopeFactory scopeFactory, ILogger<ScoutHub> logge
         var userId = await GetUserIdAsync();
         if (userId.HasValue) await Clients.OthersInGroup($"User_{userId.Value}").SendAsync("PostGameResults", players);
     }
-    
+
     public async Task TriggerNoteInput()
     {
         var userId = await GetUserIdAsync();
         if (userId.HasValue) await Clients.OthersInGroup($"User_{userId.Value}").SendAsync("ActivateNoteInput");
     }
-    
+
     public async Task TriggerBulkImport()
     {
         var userId = await GetUserIdAsync();
-        // Since we are triggering from the Web UI, we don't use OthersInGroup, we use Group so it hits the LocalClients
+        // Group (not OthersInGroup) so the signal hits LocalClients too
         if (userId.HasValue) await Clients.Group($"User_{userId.Value}").SendAsync("StartBulkImport");
     }
 
@@ -183,21 +219,20 @@ public class ScoutHub(IServiceScopeFactory scopeFactory, ILogger<ScoutHub> logge
     public async Task PushBulkScanProgress(int current, int total)
     {
         var userId = await GetUserIdAsync();
-        if (userId.HasValue) 
+        if (!userId.HasValue) return;
+
+        if (current == total)
         {
-            if (current == total)
+            using var scope = scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<Sc2Otter.Data.ScoutDbContext>();
+            var user = await db.Users.FindAsync(userId.Value);
+            if (user != null)
             {
-                using var scope = scopeFactory.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<Sc2Otter.Data.ScoutDbContext>();
-                var user = await db.Users.FindAsync(userId.Value);
-                if (user != null)
-                {
-                    user.LastBulkScanAt = DateTime.UtcNow;
-                    await db.SaveChangesAsync();
-                }
+                user.LastBulkScanAt = DateTime.UtcNow;
+                await db.SaveChangesAsync();
             }
-            await Clients.OthersInGroup($"User_{userId.Value}").SendAsync("BulkScanProgress", current, total);
         }
+        await Clients.OthersInGroup($"User_{userId.Value}").SendAsync("BulkScanProgress", current, total);
     }
 
     public async Task RequestGameStateRefresh()
@@ -205,6 +240,10 @@ public class ScoutHub(IServiceScopeFactory scopeFactory, ILogger<ScoutHub> logge
         var userId = await GetUserIdAsync();
         if (userId.HasValue) await Clients.OthersInGroup($"User_{userId.Value}").SendAsync("GameStateRefreshRequested");
     }
+
+    // -------------------------------------------------------------------------
+    // Hub lifecycle
+    // -------------------------------------------------------------------------
 
     public override async Task OnConnectedAsync()
     {

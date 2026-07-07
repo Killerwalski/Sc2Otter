@@ -58,8 +58,15 @@ public static class TagDictionary
         new() { Name = "Mass Ghost", Description = "Built 8 or more Ghosts.", Category = "Mass Unit", Race = "Terran" }
     };
 
-    public static TagDefinition? Get(string name)
-    {
-        return AllTags.FirstOrDefault(t => t.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
-    }
+    // O(1) lookup dictionary built once at startup — keyed by lower-case tag name.
+    // Use Get() instead of querying AllTags directly to benefit from this index.
+    private static readonly Dictionary<string, TagDefinition> _tagIndex =
+        AllTags.ToDictionary(t => t.Name.ToLowerInvariant(), t => t);
+
+    /// <summary>
+    /// Looks up a tag definition by name (case-insensitive). Returns null if not found.
+    /// O(1) — uses a pre-built dictionary instead of a linear scan.
+    /// </summary>
+    public static TagDefinition? Get(string name) =>
+        _tagIndex.TryGetValue(name.ToLowerInvariant(), out var def) ? def : null;
 }

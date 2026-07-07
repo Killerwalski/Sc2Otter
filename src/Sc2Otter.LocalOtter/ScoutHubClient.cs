@@ -13,14 +13,19 @@ public class ScoutHubClient
     private readonly HubConnection _connection;
     private readonly ILogger<ScoutHubClient> _logger;
 
+    /// <summary>Raised when the server requests a bulk replay import (triggered from the Web UI).</summary>
     public event Action? OnBulkImportRequested;
+
+    /// <summary>Raised when the server requests the local client to push a fresh game state.</summary>
     public event Action? OnRefreshRequested;
+
+    /// <summary>Raised when the SignalR connection is first established or successfully reconnected.</summary>
     public event Action? OnConnected;
 
     public ScoutHubClient(ILogger<ScoutHubClient> logger, SettingsService settings)
     {
         _logger = logger;
-        
+
         var serverUrl = settings.Current.ServerUrl.TrimEnd('/');
         var url = $"{serverUrl}/scouthub";
         if (!string.IsNullOrEmpty(settings.Current.SyncKey))
@@ -58,7 +63,7 @@ public class ScoutHubClient
             await _connection.StartAsync(ct);
             _logger.LogInformation("Connected to ScoutHub");
             OnConnected?.Invoke();
-            
+
             _connection.Reconnected += (connectionId) =>
             {
                 _logger.LogInformation("Reconnected to ScoutHub");
@@ -66,15 +71,28 @@ public class ScoutHubClient
                 return Task.CompletedTask;
             };
 
-            _ = Task.Run(async () => 
+            // Heartbeat loop — keeps the server aware this local client is alive.
+            _ = Task.Run(async () =>
             {
                 while (!ct.IsCancellationRequested)
                 {
-                    if (_connection.State == HubConnectionState.Connected)
+                    try
                     {
-                        await _connection.InvokeAsync("SendHeartbeat", ct);
+                        if (_connection.State == HubConnectionState.Connected)
+                        {
+                            await _connection.InvokeAsync("SendHeartbeat", ct);
+                        }
+                        await Task.Delay(5000, ct);
                     }
-                    await Task.Delay(5000, ct);
+                    catch (OperationCanceledException)
+                    {
+                        // Clean shutdown — exit the loop gracefully.
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Heartbeat error — will retry next cycle.");
+                    }
                 }
             }, ct);
         }

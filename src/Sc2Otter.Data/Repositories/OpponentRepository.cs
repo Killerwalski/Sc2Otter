@@ -7,17 +7,23 @@ using Sc2Otter.Core.Models;
 public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUserService) : IOpponentRepository
 {
     private int UserId => currentUserService.UserId ?? throw new UnauthorizedAccessException("User not authenticated.");
+
+    // -------------------------------------------------------------------------
+    // Opponent CRUD
+    // -------------------------------------------------------------------------
+
     public async Task<Opponent?> FindByNameAsync(string name, CancellationToken ct = default)
     {
         return await db.Opponents
             .Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag)
-            .FirstOrDefaultAsync(o => o.UserId == UserId && o.Name.ToLower() == name.ToLower(), ct);
+            // EF.Functions.ILike is Postgres case-insensitive LIKE — lets the (UserId, Name) index be used.
+            .FirstOrDefaultAsync(o => o.UserId == UserId && EF.Functions.ILike(o.Name, name), ct);
     }
 
     public async Task<Opponent?> FindByToonHandleOrNameAsync(string name, string? toonHandle, string? race = null, CancellationToken ct = default)
     {
         Opponent? opponent = null;
-        
+
         if (!string.IsNullOrWhiteSpace(toonHandle))
         {
             opponent = await db.Opponents
@@ -30,7 +36,10 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
             // Fallback: search by name and race if toonHandle didn't match (e.g. some local queries don't have toonHandle)
             opponent = await db.Opponents
                 .Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag)
-                .FirstOrDefaultAsync(o => o.UserId == UserId && o.Name.ToLower() == name.ToLower() && (race == null || o.Race == race), ct);
+                .FirstOrDefaultAsync(o =>
+                    o.UserId == UserId &&
+                    EF.Functions.ILike(o.Name, name) &&
+                    (race == null || o.Race == race), ct);
         }
 
         return opponent;
@@ -40,10 +49,11 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
     {
         var time = seenAt ?? DateTime.UtcNow;
         var opponent = await FindByToonHandleOrNameAsync(name, toonHandle, race, ct);
-        
+
         if (opponent is not null)
         {
             if (race is not null) opponent.Race = race;
+
             // Link toonHandle if we found them by Name and they didn't have one
             if (!string.IsNullOrWhiteSpace(toonHandle) && string.IsNullOrWhiteSpace(opponent.ToonHandle))
             {
@@ -54,7 +64,7 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
             if (opponent.LastSeen < time) opponent.LastSeen = time;
             // Only update FirstSeen if the new time is older than the existing FirstSeen
             if (opponent.FirstSeen > time) opponent.FirstSeen = time;
-            
+
             await db.SaveChangesAsync(ct);
             return opponent;
         }
@@ -111,7 +121,8 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(query))
-            q = q.Where(o => o.Name.ToLower().Contains(query.ToLower()));
+            // ILike is Postgres case-insensitive LIKE — keeps the index usable vs. ToLower() which forces a full scan.
+            q = q.Where(o => EF.Functions.ILike(o.Name, $"%{query}%"));
 
         if (!string.IsNullOrWhiteSpace(raceFilter))
             q = q.Where(o => o.Race == raceFilter);
@@ -136,9 +147,17 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
             .ToListAsync(ct);
     }
 
+    // -------------------------------------------------------------------------
+    // Notes
+    // -------------------------------------------------------------------------
+
     public async Task<OpponentNote> AddNoteAsync(int opponentId, string content, string source = "keyboard", int? matchRecordId = null, List<string>? autoTags = null, CancellationToken ct = default)
     {
-        var existingNote = await db.Notes.FirstOrDefaultAsync(n => n.OpponentId == opponentId && n.Content == content && n.Source == source, ct);
+        var existingNote = await db.Notes.FirstOrDefaultAsync(n =>
+            n.OpponentId == opponentId &&
+            n.Content == content &&
+            n.Source == source, ct);
+
         if (existingNote != null)
         {
             return existingNote;
@@ -176,9 +195,15 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
         await db.SaveChangesAsync(ct);
     }
 
+    // -------------------------------------------------------------------------
+    // Tags
+    // -------------------------------------------------------------------------
+
     public async Task AddTagAsync(int opponentId, string tagName, CancellationToken ct = default)
     {
-        var opponent = await db.Opponents.Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag).FirstOrDefaultAsync(o => o.UserId == UserId && o.Id == opponentId, ct);
+        var opponent = await db.Opponents
+            .Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag)
+            .FirstOrDefaultAsync(o => o.UserId == UserId && o.Id == opponentId, ct);
         if (opponent is null) return;
 
         var tag = await db.Tags.FirstOrDefaultAsync(t => t.Name == tagName, ct);
@@ -203,7 +228,9 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
 
     public async Task RemoveTagAsync(int opponentId, string tagName, CancellationToken ct = default)
     {
-        var opponent = await db.Opponents.Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag).FirstOrDefaultAsync(o => o.UserId == UserId && o.Id == opponentId, ct);
+        var opponent = await db.Opponents
+            .Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag)
+            .FirstOrDefaultAsync(o => o.UserId == UserId && o.Id == opponentId, ct);
         if (opponent is null) return;
 
         var assignment = opponent.TagAssignments.FirstOrDefault(ta => ta.Tag.Name == tagName);
@@ -219,15 +246,27 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
         return await db.Tags.OrderBy(t => t.Name).ToListAsync(ct);
     }
 
+    // -------------------------------------------------------------------------
+    // Matches
+    // -------------------------------------------------------------------------
+
     public async Task<bool> IsMatchAlreadyAnalyzedAsync(int opponentId, DateTime playedAt, CancellationToken ct = default)
     {
-        var exactDuplicate = await db.MatchRecords.FirstOrDefaultAsync(m => m.OpponentId == opponentId && m.PlayedAt == playedAt, ct);
+        var exactDuplicate = await db.MatchRecords.FirstOrDefaultAsync(m =>
+            m.OpponentId == opponentId && m.PlayedAt == playedAt, ct);
         if (exactDuplicate != null && exactDuplicate.FullMatchData != null) return true;
-        
-        var fuzzy = await db.MatchRecords.FirstOrDefaultAsync(m => m.OpponentId == opponentId && m.FullMatchData != null && Math.Abs((playedAt - m.PlayedAt).TotalMinutes) < 60, ct);
-        if (fuzzy != null) return true;
-        
-        return false;
+
+        // Use explicit date bounds so this predicate translates to a server-side SQL range query.
+        // Math.Abs() cannot be translated by EF Core and would cause a client-side evaluation.
+        var lowerBound = playedAt.AddHours(-1);
+        var upperBound = playedAt.AddHours(1);
+        var fuzzy = await db.MatchRecords.FirstOrDefaultAsync(m =>
+            m.OpponentId == opponentId &&
+            m.FullMatchData != null &&
+            m.PlayedAt >= lowerBound &&
+            m.PlayedAt <= upperBound, ct);
+
+        return fuzzy != null;
     }
 
     public async Task<MatchRecord> RecordMatchAsync(int opponentId, RecordMatchRequest req, CancellationToken ct = default)
@@ -237,7 +276,7 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
 
         var playedAt = req.PlayedAt ?? DateTime.UtcNow;
 
-        var exactDuplicate = req.PlayedAt.HasValue 
+        var exactDuplicate = req.PlayedAt.HasValue
             ? await db.MatchRecords.FirstOrDefaultAsync(m => m.OpponentId == opponentId && m.PlayedAt == req.PlayedAt.Value, ct)
             : null;
 
@@ -265,7 +304,7 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
             existingMatch.OpponentRace = req.OpponentRace ?? existingMatch.OpponentRace;
             existingMatch.GameMode = req.GameMode ?? existingMatch.GameMode;
             if (req.PlayedAt.HasValue) existingMatch.PlayedAt = req.PlayedAt.Value;
-            
+
             if (req.FullMatchData != null)
             {
                 existingMatch.FullMatchData = req.FullMatchData;
@@ -286,7 +325,7 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
                 opponent.LastSeen = existingMatch.PlayedAt;
                 opponent.Race = req.OpponentRace ?? opponent.Race;
             }
-            
+
             db.MatchRecords.Update(existingMatch);
             await db.SaveChangesAsync(ct);
             return existingMatch;
@@ -313,7 +352,6 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
             OpponentAvgUnspentMinerals = req.OpponentAvgUnspentMinerals,
             OpponentAvgMineralIncome = req.OpponentAvgMineralIncome
         };
-        
 
         db.MatchRecords.Add(match);
 
@@ -337,12 +375,19 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
 
     public async Task<(int TotalGames, int Wins, int Losses)> GetStatsAsync(int opponentId, CancellationToken ct = default)
     {
-        var records = await db.MatchRecords.Where(m => m.OpponentId == opponentId && m.Opponent.UserId == UserId).ToListAsync(ct);
-        return (
-            records.Count,
-            records.Count(r => r.Result == MatchResult.Win),
-            records.Count(r => r.Result == MatchResult.Loss)
-        );
+        // Project the counts server-side with a single SQL query instead of loading all rows into memory.
+        var stats = await db.MatchRecords
+            .Where(m => m.OpponentId == opponentId && m.Opponent.UserId == UserId)
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Total = g.Count(),
+                Wins = g.Count(r => r.Result == MatchResult.Win),
+                Losses = g.Count(r => r.Result == MatchResult.Loss)
+            })
+            .FirstOrDefaultAsync(ct);
+
+        return stats is null ? (0, 0, 0) : (stats.Total, stats.Wins, stats.Losses);
     }
 
     public async Task WipeDatabaseAsync(CancellationToken ct = default)

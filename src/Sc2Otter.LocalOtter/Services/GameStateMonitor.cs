@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.SignalR;
 using Sc2Otter.Core.Events;
 using Sc2Otter.Core.Interfaces;
 using Sc2Otter.Core.Models;
-using Sc2Otter.LocalOtter.Services;
 
 public class GameStateMonitor : BackgroundService
 {
@@ -21,6 +20,9 @@ public class GameStateMonitor : BackgroundService
     private List<OpponentDetectedEvent> _currentOpponents = [];
     private string? _lastMapName;
     private bool _forceStatePush = true;
+
+    // Replays written more recently than this are considered "from the current session".
+    private const int ReplayMaxAgeMinutes = 15;
 
     public Sc2GameState CurrentState => _currentState;
     public IReadOnlyList<OpponentDetectedEvent> CurrentOpponents => _currentOpponents;
@@ -105,7 +107,7 @@ public class GameStateMonitor : BackgroundService
         }
         else if (newState is Sc2GameState.LoadingScreen or Sc2GameState.InGame)
         {
-            var myNames = (settings.Current.MySc2Name ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(n => n.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var myNames = GetMyNames();
             var currentHumanPlayers = (gameInfo?.Players ?? [])
                 .Where(p => !p.Type.Equals("computer", StringComparison.OrdinalIgnoreCase))
                 .Where(p => myNames.Count == 0 || !myNames.Contains((p.Name ?? "").Trim()))
@@ -113,7 +115,7 @@ public class GameStateMonitor : BackgroundService
                 .Where(n => !string.IsNullOrWhiteSpace(n))
                 .ToList();
 
-            if (currentHumanPlayers.Count > 0 && 
+            if (currentHumanPlayers.Count > 0 &&
                 (currentHumanPlayers.Count != _currentOpponentNames.Count || !currentHumanPlayers.All(_currentOpponentNames.Contains)))
             {
                 logger.LogInformation("Players changed during {State}. Reloading opponents.", newState);
@@ -129,12 +131,7 @@ public class GameStateMonitor : BackgroundService
 
     private Sc2GameState DetermineState(List<string> screens, Sc2GameResponse? gameInfo)
     {
-        var hasResults = (gameInfo?.Players ?? []).Any(p =>
-            string.Equals(p.Result, "Victory", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(p.Result, "Defeat", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(p.Result, "Win", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(p.Result, "Loss", StringComparison.OrdinalIgnoreCase));
-
+        var hasResults = HasGameResults(gameInfo);
         var hasPlayers = (gameInfo?.Players ?? []).Count > 0;
         var isGameActive = hasPlayers && !hasResults;
 
@@ -159,7 +156,7 @@ public class GameStateMonitor : BackgroundService
             return hasResults ? Sc2GameState.PostGame : Sc2GameState.InGame;
         }
 
-        // If no explicit in-game screen is reported, but a game is active, we are in-game!
+        // If no explicit in-game screen is reported but a game is active, we are in-game.
         // SC2 API often reports empty active screens when actually playing a match.
         if (isGameActive)
         {
@@ -204,7 +201,7 @@ public class GameStateMonitor : BackgroundService
                     if (newState != previousState)
                     {
                         await HandlePostGame(gameInfo, ct);
-                        
+
                         // Reload opponents to fetch updated stats (wins/losses)
                         newlyDetectedOpponents = await DetectOpponentsAsync(gameInfo, ct, ignoreCache: true);
                         if (newlyDetectedOpponents.Count > 0)
@@ -236,29 +233,31 @@ public class GameStateMonitor : BackgroundService
         await hubClient.PushGameStateAsync(stateEvent, ct);
     }
 
+    /// <summary>
+    /// Identifies opponents from the current game info, upserts them in the repository,
+    /// optionally fetches MMR from SC2 Pulse, and returns a list of <see cref="OpponentDetectedEvent"/>.
+    /// </summary>
+    /// <param name="ignoreCache">
+    /// When true, skips the stale-cached-game check. Pass true when calling after post-game
+    /// so that the final player results are included even though the API still reports results.
+    /// </param>
     private async Task<List<OpponentDetectedEvent>> DetectOpponentsAsync(Sc2GameResponse? gameInfo, CancellationToken ct, bool ignoreCache = false)
     {
         if (gameInfo is null) return [];
 
         if (!ignoreCache)
         {
-            // If the API is still caching the previous game, it will have results. Ignore it.
-            var isOldCachedGame = (gameInfo.Players ?? []).Any(p =>
-                string.Equals(p.Result, "Victory", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(p.Result, "Defeat", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(p.Result, "Win", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(p.Result, "Loss", StringComparison.OrdinalIgnoreCase));
-
-            if (isOldCachedGame) return [];
+            // If the API is still caching the previous game it will have results — ignore it.
+            if (HasGameResults(gameInfo)) return [];
         }
 
-        var myNames = (settings.Current.MySc2Name ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(n => n.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var myNames = GetMyNames();
 
         // Identify opponents (players who are not "me")
         var allHumanPlayers = (gameInfo.Players ?? [])
             .Where(p => !p.Type.Equals("computer", StringComparison.OrdinalIgnoreCase))
             .ToList();
-            
+
         var humanPlayers = allHumanPlayers
             .Where(p => myNames.Count == 0 || !myNames.Contains((p.Name ?? "").Trim()))
             .ToList();
@@ -295,7 +294,7 @@ public class GameStateMonitor : BackgroundService
             // Load full details for display
             var details = await repo.GetWithDetailsAsync(opponent.Id, ct);
             var stats = await repo.GetStatsAsync(opponent.Id, ct);
-            
+
             // Try fetching MMR if we don't have it saved recently
             if (!opponent.Mmr.HasValue || (DateTime.UtcNow - opponent.LastSeen).TotalDays > 1)
             {
@@ -328,11 +327,11 @@ public class GameStateMonitor : BackgroundService
         }
 
         _currentOpponentNames.Clear();
-        foreach (var name in newNames) _currentOpponentNames.Add(name);
+        _currentOpponentNames.UnionWith(newNames);
 
         _currentOpponentIds.Clear();
         foreach (var kvp in newIds) _currentOpponentIds[kvp.Key] = kvp.Value;
-        
+
         _lastMapName = null; // Will be populated when we can determine the map
 
         return detectedOpponents;
@@ -356,18 +355,17 @@ public class GameStateMonitor : BackgroundService
                 _ => MatchResult.Unknown
             };
 
-            // Note: from SC2's perspective, "Victory" means THAT player won.
-            // Since we're recording against our opponents, if the opponent got Victory, WE lost.
-            // But actually, the API reports results from the perspective of each player.
-            // We need to invert: if opponent result is Victory, we record it as a Loss for us.
+            // From SC2's perspective "Victory" means THAT player won.
+            // Since we record from OUR perspective: if opponent got Victory, WE lost.
             var ourResult = result switch
             {
-                MatchResult.Win => MatchResult.Loss,  // Opponent won = we lost
-                MatchResult.Loss => MatchResult.Win,  // Opponent lost = we won
+                MatchResult.Win => MatchResult.Loss,   // Opponent won = we lost
+                MatchResult.Loss => MatchResult.Win,   // Opponent lost = we won
                 _ => MatchResult.Unknown
             };
 
-            await repo.RecordMatchAsync(opponentId, new RecordMatchRequest {
+            await repo.RecordMatchAsync(opponentId, new RecordMatchRequest
+            {
                 Result = ourResult,
                 MapName = _lastMapName,
                 MyRace = null,
@@ -380,8 +378,8 @@ public class GameStateMonitor : BackgroundService
 
         // Notify UI of post-game
         await hubClient.PushPostGameResultsAsync(gameInfo.Players, ct);
-        
-        // Analyze the replay! Give it a brief delay to ensure the file is written and unlocked by SC2
+
+        // Analyze the replay — brief delay to let SC2 finish writing and releasing the file
         _ = Task.Run(async () =>
         {
             try
@@ -389,16 +387,15 @@ public class GameStateMonitor : BackgroundService
                 // Retry finding the replay up to 5 times (15 seconds total)
                 for (int i = 0; i < 5; i++)
                 {
-                    await Task.Delay(3000, ct); 
+                    await Task.Delay(3000, ct);
                     var replayPath = TryGetLatestReplayPath();
                     if (replayPath != null)
                     {
                         using var analysisScope = scopeFactory.CreateScope();
                         var analyzer = analysisScope.ServiceProvider.GetRequiredService<ReplayAnalysisService>();
                         var success = await analyzer.AnalyzeReplayAsync(replayPath, ct);
-                        
-                        // If it successfully ran the python script, we can stop retrying.
-                        // If it failed (e.g. file locked), we'll loop and try again in 3s.
+
+                        // If the python script ran successfully, stop retrying.
                         if (success) break;
                     }
                 }
@@ -410,6 +407,25 @@ public class GameStateMonitor : BackgroundService
         }, ct);
     }
 
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+
+    /// <summary>Returns true if the game API response contains any final Win/Loss results.</summary>
+    private static bool HasGameResults(Sc2GameResponse? gameInfo) =>
+        (gameInfo?.Players ?? []).Any(p =>
+            string.Equals(p.Result, "Victory", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(p.Result, "Defeat", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(p.Result, "Win", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(p.Result, "Loss", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Parses the MySc2Name setting into a case-insensitive HashSet of names.</summary>
+    private HashSet<string> GetMyNames() =>
+        (settings.Current.MySc2Name ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(n => n.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
     private string? TryGetLatestReplayPath()
     {
         try
@@ -420,8 +436,8 @@ public class GameStateMonitor : BackgroundService
                 var recent = new DirectoryInfo(customDir).GetFiles("*.SC2Replay", SearchOption.AllDirectories)
                     .OrderByDescending(f => f.LastWriteTimeUtc)
                     .FirstOrDefault();
-                    
-                if (recent != null && (DateTime.UtcNow - recent.LastWriteTimeUtc).TotalMinutes < 15)
+
+                if (recent != null && (DateTime.UtcNow - recent.LastWriteTimeUtc).TotalMinutes < ReplayMaxAgeMinutes)
                 {
                     return recent.FullName;
                 }
@@ -452,7 +468,7 @@ public class GameStateMonitor : BackgroundService
                 }
             }
 
-            if (latestReplay != null && (DateTime.UtcNow - latestReplay.LastWriteTimeUtc).TotalMinutes < 15)
+            if (latestReplay != null && (DateTime.UtcNow - latestReplay.LastWriteTimeUtc).TotalMinutes < ReplayMaxAgeMinutes)
             {
                 return latestReplay.FullName;
             }
@@ -468,7 +484,7 @@ public class GameStateMonitor : BackgroundService
     {
         var path = TryGetLatestReplayPath();
         if (path == null) return null;
-        
+
         var name = Path.GetFileNameWithoutExtension(path);
         var match = System.Text.RegularExpressions.Regex.Match(name, @"^(.*?)( \(\d+\))?$");
         if (match.Success)

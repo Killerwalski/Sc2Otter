@@ -19,6 +19,10 @@ public static class ApiEndpoints
     {
         var group = app.MapGroup("/api/opponents");
 
+        // --- Auth filter ---
+        // Accepts either a cookie-based session (OAuth) or an X-Sync-Key header (LocalOtter sync key).
+        // The UserId is stashed in HttpContext.Items so CurrentUserService can pick it up without
+        // a second DB call. If neither credential is present the request gets a 401.
         group.AddEndpointFilter(async (context, next) =>
         {
             if (context.HttpContext.User.Identity?.IsAuthenticated == true)
@@ -31,7 +35,7 @@ public static class ApiEndpoints
                 var syncKey = syncKeyValues.FirstOrDefault();
                 if (!string.IsNullOrEmpty(syncKey))
                 {
-                    var db = context.HttpContext.RequestServices.GetRequiredService<Sc2Otter.Data.ScoutDbContext>();
+                    var db = context.HttpContext.RequestServices.GetRequiredService<ScoutDbContext>();
                     var user = await db.Users.FirstOrDefaultAsync(u => u.SyncKey == syncKey);
                     if (user != null)
                     {
@@ -75,7 +79,7 @@ public static class ApiEndpoints
 
         group.MapPut("/{id}", async (int id, [FromBody] Opponent opponent, IOpponentRepository repo, CancellationToken ct) =>
         {
-            opponent.Id = id; // Ensure ID matches
+            opponent.Id = id; // Ensure ID matches route
             await repo.UpdateOpponentAsync(opponent, ct);
             return Results.Ok();
         });
@@ -142,8 +146,8 @@ public static class ApiEndpoints
             {
                 if (req.PlayedAt.HasValue && req.PlayedAt.Value.Kind != DateTimeKind.Utc)
                 {
-                    req.PlayedAt = req.PlayedAt.Value.Kind == DateTimeKind.Local 
-                        ? req.PlayedAt.Value.ToUniversalTime() 
+                    req.PlayedAt = req.PlayedAt.Value.Kind == DateTimeKind.Local
+                        ? req.PlayedAt.Value.ToUniversalTime()
                         : DateTime.SpecifyKind(req.PlayedAt.Value, DateTimeKind.Utc);
                 }
                 var match = await repo.RecordMatchAsync(id, req, ct);
@@ -165,13 +169,24 @@ public static class ApiEndpoints
             return Results.Ok(stats);
         });
 
-        app.MapGet("/api/debug-db", async (ScoutDbContext db) =>
+        // --- Debug / Admin endpoints (no auth guard — restrict to dev or trusted networks) ---
+
+        // Shows pending and applied EF migrations. Useful when debugging deployment issues.
+        app.MapGet("/api/debug-db", async (ScoutDbContext db, IWebHostEnvironment env) =>
         {
+            if (!env.IsDevelopment())
+                return Results.Forbid();
+
             var pending = await db.Database.GetPendingMigrationsAsync();
             var applied = await db.Database.GetAppliedMigrationsAsync();
             return Results.Ok(new { Pending = pending, Applied = applied });
         });
 
+        // Emergency escape hatch: manually applies the migration columns that were previously
+        // missing from the InitialPostgres baseline on pre-migration databases.
+        // This endpoint is intentionally kept as a safety net for older deployments that were
+        // set up before the EF Migrations history table existed. It is idempotent — the ALTER TABLE
+        // will no-op (or error-catch) if the columns already exist.
         app.MapGet("/api/apply-migration", async (ScoutDbContext db) =>
         {
             try
