@@ -197,11 +197,11 @@ def analyze_replay(replay_path, my_name=None):
                         if not getattr(event.unit, 'is_building', False):
                             minute = event.second // 60
                             # Find or create minute bucket
-                            bucket = next((b for b in player_result["telemetry"]["armyLost"] if b["m"] == minute), None)
+                            bucket = next((b for b in player_result["telemetry"]["armyLost"] if b[0] == minute), None)
                             if bucket:
-                                bucket["c"] += 1
+                                bucket[1] += 1
                             else:
-                                player_result["telemetry"]["armyLost"].append({"m": minute, "c": 1})
+                                player_result["telemetry"]["armyLost"].append([minute, 1])
                         
             # Analyze player stats for supply block and unspent minerals
             stats_events = [e for e in replay.tracker_events if e.name == 'PlayerStatsEvent' and getattr(e, 'pid', None) == player.pid]
@@ -211,18 +211,18 @@ def analyze_replay(replay_path, my_name=None):
                 player_result["stats"]["avgUnspentMinerals"] = int(sum(e.minerals_current for e in stats_events) / len(stats_events))
                 player_result["stats"]["avgMineralIncome"] = int(sum(e.minerals_collection_rate for e in stats_events) / len(stats_events))
                 
-                # Telemetry extraction
+                # Telemetry extraction (optimized to array of arrays to save LLM tokens: [minute, workers, supply, min_income, gas_income])
                 for e in stats_events:
                     if e.second % 60 < 15: # Take roughly 1 sample per minute (stats events occur every 10s)
                         minute = e.second // 60
-                        if not any(t['m'] == minute for t in player_result["telemetry"]["economy"]):
-                            player_result["telemetry"]["economy"].append({
-                                "m": minute,
-                                "w": getattr(e, 'workers_active_count', 0),
-                                "s": getattr(e, 'food_used', 0),
-                                "min": getattr(e, 'minerals_collection_rate', 0),
-                                "gas": getattr(e, 'vespene_collection_rate', 0)
-                            })
+                        if not any(t[0] == minute for t in player_result["telemetry"]["economy"]):
+                            player_result["telemetry"]["economy"].append([
+                                minute,
+                                getattr(e, 'workers_active_count', 0),
+                                getattr(e, 'food_used', 0),
+                                getattr(e, 'minerals_collection_rate', 0),
+                                getattr(e, 'vespene_collection_rate', 0)
+                            ])
                                     
             # 3. Expansion First Detection
             if first_exp_time < first_prod_time and first_exp_time < 300:

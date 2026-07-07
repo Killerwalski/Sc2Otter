@@ -26,7 +26,8 @@ public class LlmAnalysisService
     private readonly ILogger<LlmAnalysisService> _logger;
 
     private const string SystemPrompt = 
-        "You are a Grandmaster StarCraft 2 coach. Analyze the provided game telemetry JSON (economy intervals and army lost per minute). " +
+        "You are a Grandmaster StarCraft 2 coach. Analyze the provided game telemetry JSON. " +
+        "'economy' is an array of [minute, workers, supply, min_income, gas_income]. 'armyLost' is an array of [minute, units_lost]. " +
         "Output ONLY a valid JSON object with two fields: " +
         "'archetype': A 2-3 word classification (e.g., 'Macro Defensive', '1-Base All-In', 'Heavy Harass', 'Standard Macro'). " +
         "'summary': A 1-2 sentence pragmatic summary of how this player played this game based on the stats.";
