@@ -84,6 +84,9 @@ else
 
 var builder = Host.CreateApplicationBuilder(args);
 
+builder.Logging.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning);
+builder.Logging.AddFilter("Microsoft.Extensions.Http", LogLevel.Warning);
+
 builder.Services.AddSingleton(settingsService);
 builder.Services.AddSingleton<ReplayAnalysisService>();
 
