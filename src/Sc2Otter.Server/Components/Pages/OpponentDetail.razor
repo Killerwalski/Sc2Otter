@@ -28,12 +28,11 @@ else
                 <span>First seen: <LocalTime UtcTime="@Opponent.FirstSeen" IncludeYear="true" /></span>
                 <span>Last seen: <LocalTime UtcTime="@Opponent.LastSeen" IncludeYear="true" /></span>
             </div>
-        </div>
-        <div>
-            <button class="btn btn-danger" style="background: rgba(255, 59, 48, 0.1); color: #ff3b30; border: 1px solid rgba(255, 59, 48, 0.2); padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s; font-weight: 500;" @onclick="DeleteOpponent" @onclick:preventDefault>
-                Delete Opponent
-            </button>
-        </div>
+            <div style="margin-top: 8px;">
+                <button class="btn btn-danger" style="background: rgba(255, 59, 48, 0.1); color: #ff3b30; border: 1px solid rgba(255, 59, 48, 0.2); padding: 4px 8px; border-radius: 4px; cursor: pointer; transition: all 0.2s; font-size: 0.9em;" @onclick="DeleteOpponent" @onclick:preventDefault>
+                    Delete Opponent
+                </button>
+            </div>
         </div>
         <div class="opponent-stats" style="margin-left: auto;">
             <div class="stat"><span class="stat-value total">@TotalGames</span><span class="stat-label">Games</span></div>
@@ -200,7 +199,8 @@ else
         // Don't auto-refresh the detail page if the live game is someone else
         if (data.OpponentId == Id)
         {
-            await RefreshDataAsync();
+            await LoadOpponent();
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -209,6 +209,7 @@ else
         await Repo.DeleteOpponentAsync(Id);
         Navigation.NavigateTo("/opponents");
     }
+
 
     private async Task LoadOpponent()
     {
