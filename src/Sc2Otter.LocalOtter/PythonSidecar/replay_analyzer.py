@@ -5,8 +5,8 @@ import sc2reader
 
 def analyze_replay(replay_path, my_name=None):
     try:
-        # Load replay with tracker events
-        replay = sc2reader.load_replay(replay_path, load_level=4)
+        # Load replay with tracker events (level 3) - skips game events (level 4) for massive speedup
+        replay = sc2reader.load_replay(replay_path, load_level=3)
         
         if replay.length.seconds < 180:
             print(json.dumps({"success": True, "skipped": True, "message": "Game too short"}))
