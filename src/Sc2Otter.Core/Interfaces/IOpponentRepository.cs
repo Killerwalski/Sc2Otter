@@ -5,7 +5,8 @@ using Sc2Otter.Core.Models;
 public interface IOpponentRepository
 {
     Task<Opponent?> FindByNameAsync(string name, CancellationToken ct = default);
-    Task<Opponent> GetOrCreateAsync(string name, string? race, DateTime? seenAt = null, CancellationToken ct = default);
+    Task<Opponent?> FindByToonHandleOrNameAsync(string name, string? toonHandle, CancellationToken ct = default);
+    Task<Opponent> GetOrCreateAsync(string name, string? toonHandle, string? race, DateTime? seenAt = null, CancellationToken ct = default);
     Task<Opponent?> GetByIdAsync(int id, CancellationToken ct = default);
     Task<Opponent?> GetWithDetailsAsync(int id, CancellationToken ct = default);
     Task UpdateOpponentAsync(Opponent opponent, CancellationToken ct = default);

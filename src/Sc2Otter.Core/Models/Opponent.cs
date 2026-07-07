@@ -7,6 +7,7 @@ public class Opponent
     public int UserId { get; set; }
     public AppUser User { get; set; } = null!;
     public string Name { get; set; } = string.Empty;
+    public string? ToonHandle { get; set; }
     public string? Race { get; set; }
     public DateTime FirstSeen { get; set; } = DateTime.UtcNow;
     public DateTime LastSeen { get; set; } = DateTime.UtcNow;

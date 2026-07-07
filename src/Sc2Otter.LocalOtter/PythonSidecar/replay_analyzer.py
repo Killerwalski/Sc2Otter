@@ -20,6 +20,7 @@ def analyze_replay(replay_path, my_name=None):
         for player in players:
             player_result = {
                 "name": player.name,
+                "toonHandle": getattr(player, 'toon_handle', None),
                 "race": player.play_race,
                 "result": player.result,
                 "teamId": getattr(player, 'team_id', 0),
@@ -49,7 +50,8 @@ def analyze_replay(replay_path, my_name=None):
                 'BeaconDetect', 'BeaconScout', 'BeaconClaim', 'BeaconExpand', 'BeaconRally', 
                 'BeaconCustom1', 'BeaconCustom2', 'BeaconCustom3', 'BeaconCustom4',
                 'CreepTumor', 'CreepTumorBurrowed', 'CreepTumorQueen', 'OracleStasisTrap',
-                'KD8Charge', 'ParasiticBombDummy', 'AdeptPhaseShift', 'DisruptorPhased'
+                'KD8Charge', 'ParasiticBombDummy', 'AdeptPhaseShift', 'DisruptorPhased',
+                'InvisibleTargetDummy'
             }
             for unit in getattr(player, 'units', []):
                 if getattr(unit, 'hallucinated', False) or getattr(unit, 'is_building', False) or not unit.name:

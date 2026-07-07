@@ -14,17 +14,46 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
             .FirstOrDefaultAsync(o => o.UserId == UserId && o.Name.ToLower() == name.ToLower(), ct);
     }
 
-    public async Task<Opponent> GetOrCreateAsync(string name, string? race, DateTime? seenAt = null, CancellationToken ct = default)
+    public async Task<Opponent?> FindByToonHandleOrNameAsync(string name, string? toonHandle, CancellationToken ct = default)
+    {
+        Opponent? opponent = null;
+        
+        if (!string.IsNullOrWhiteSpace(toonHandle))
+        {
+            opponent = await db.Opponents
+                .Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag)
+                .FirstOrDefaultAsync(o => o.UserId == UserId && o.ToonHandle == toonHandle, ct);
+        }
+
+        if (opponent is null)
+        {
+            opponent = await db.Opponents
+                .Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag)
+                .FirstOrDefaultAsync(o => o.UserId == UserId && o.Name.ToLower() == name.ToLower(), ct);
+        }
+
+        return opponent;
+    }
+
+    public async Task<Opponent> GetOrCreateAsync(string name, string? toonHandle, string? race, DateTime? seenAt = null, CancellationToken ct = default)
     {
         var time = seenAt ?? DateTime.UtcNow;
-        var opponent = await FindByNameAsync(name, ct);
+        var opponent = await FindByToonHandleOrNameAsync(name, toonHandle, ct);
+        
         if (opponent is not null)
         {
             if (race is not null) opponent.Race = race;
+            // Link toonHandle if we found them by Name and they didn't have one
+            if (!string.IsNullOrWhiteSpace(toonHandle) && string.IsNullOrWhiteSpace(opponent.ToonHandle))
+            {
+                opponent.ToonHandle = toonHandle;
+            }
+
             // Only update LastSeen if the new time is newer than the existing LastSeen
             if (opponent.LastSeen < time) opponent.LastSeen = time;
             // Only update FirstSeen if the new time is older than the existing FirstSeen
             if (opponent.FirstSeen > time) opponent.FirstSeen = time;
+            
             await db.SaveChangesAsync(ct);
             return opponent;
         }
@@ -33,6 +62,7 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
         {
             UserId = UserId,
             Name = name,
+            ToonHandle = toonHandle,
             Race = race,
             FirstSeen = time,
             LastSeen = time

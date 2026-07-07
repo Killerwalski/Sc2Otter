@@ -135,7 +135,7 @@ public class ReplayAnalysisService
                         continue;
                     }
 
-                    var opponent = await repo.GetOrCreateAsync(playerResult.Name, playerResult.Race, result.StartTime, ct);
+                    var opponent = await repo.GetOrCreateAsync(playerResult.Name, playerResult.ToonHandle, playerResult.Race, result.StartTime, ct);
                     
                     bool alreadyAnalyzed = await repo.IsMatchAlreadyAnalyzedAsync(opponent.Id, result.StartTime ?? DateTime.UtcNow, ct);
                     
@@ -228,6 +228,7 @@ public class ReplayAnalysisService
     private class PlayerAnalysisResult
     {
         public string Name { get; set; } = "";
+        public string? ToonHandle { get; set; }
         public string Race { get; set; } = "";
         public string? Result { get; set; }
         public int TeamId { get; set; }
