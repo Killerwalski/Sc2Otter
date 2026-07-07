@@ -163,5 +163,28 @@ public static class ApiEndpoints
             var stats = await repo.GetStatsAsync(id, ct);
             return Results.Ok(stats);
         });
+
+        app.MapGet("/api/debug-db", async (ScoutDbContext db) =>
+        {
+            var pending = await db.Database.GetPendingMigrationsAsync();
+            var applied = await db.Database.GetAppliedMigrationsAsync();
+            return Results.Ok(new { Pending = pending, Applied = applied });
+        });
+
+        app.MapGet("/api/apply-migration", async (ScoutDbContext db) =>
+        {
+            try
+            {
+                await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Notes\" ADD \"AutoTags\" text[] NOT NULL DEFAULT ARRAY[]::text[];");
+                await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Notes\" ADD \"MatchRecordId\" integer;");
+                await db.Database.ExecuteSqlRawAsync("CREATE INDEX \"IX_Notes_MatchRecordId\" ON \"Notes\" (\"MatchRecordId\");");
+                await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Notes\" ADD CONSTRAINT \"FK_Notes_MatchRecords_MatchRecordId\" FOREIGN KEY (\"MatchRecordId\") REFERENCES \"MatchRecords\" (\"Id\");");
+                return Results.Ok("Applied");
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(ex.ToString());
+            }
+        });
     }
 }
