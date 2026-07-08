@@ -136,6 +136,7 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
             .Where(o => o.UserId == UserId)
             .Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag)
             .Include(o => o.MatchRecords)
+            .Where(o => o.MatchRecords.Any() || o.Notes.Any())
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(query))
