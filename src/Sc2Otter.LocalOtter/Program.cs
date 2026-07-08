@@ -90,6 +90,10 @@ if (!args.Contains("--run"))
                 Console.Write($"Enter API Key [{(!string.IsNullOrEmpty(settings.AiApiKey) ? "********" : "None")}]: ");
                 var aiKey = Console.ReadLine();
                 if (!string.IsNullOrWhiteSpace(aiKey)) settings.AiApiKey = aiKey;
+
+                Console.Write($"Enter Base URL (Leave blank for default) [{settings.AiBaseUrl}]: ");
+                var aiUrl = Console.ReadLine();
+                if (!string.IsNullOrWhiteSpace(aiUrl)) settings.AiBaseUrl = aiUrl;
             }
 
             settingsService.Update(settings);
