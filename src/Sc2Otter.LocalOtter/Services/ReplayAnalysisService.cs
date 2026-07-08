@@ -295,13 +295,16 @@ public class ReplayAnalysisService
 
             bool alreadyAnalyzed = await repo.IsMatchAlreadyAnalyzedAsync(opponent.Id, result.StartTime ?? DateTime.UtcNow, ct);
 
-            if (!alreadyAnalyzed)
+            if (alreadyAnalyzed)
             {
-                foreach (var tag in playerResult.Tags)
-                {
-                    await repo.AddTagAsync(opponent.Id, tag, ct);
-                    _logger.LogInformation("Added tag '{Tag}' to {Player}", tag, playerResult.Name);
-                }
+                _logger.LogInformation("Match already analyzed for {Player}, skipping.", playerResult.Name);
+                continue;
+            }
+
+            foreach (var tag in playerResult.Tags)
+            {
+                await repo.AddTagAsync(opponent.Id, tag, ct);
+                _logger.LogInformation("Added tag '{Tag}' to {Player}", tag, playerResult.Name);
             }
 
             var ourResult = MatchResult.Unknown;
@@ -362,20 +365,17 @@ public class ReplayAnalysisService
 
             var matchRecord = await repo.RecordMatchAsync(opponent.Id, req, ct);
 
-            if (!alreadyAnalyzed)
+            if (playerResult.Notes.Any())
             {
-                if (playerResult.Notes.Any())
-                {
-                    var noteLines = playerResult.Notes.Select(n => $"- {n}");
-                    var fullNote = $"[Auto-Replay]\n{string.Join("\n", noteLines)}";
-                    await repo.AddNoteAsync(opponent.Id, fullNote, "replay", matchRecord.Id, playerResult.Tags, ct);
-                    _logger.LogInformation("Added auto-note to {Player}: {Note}", playerResult.Name, fullNote);
-                }
+                var noteLines = playerResult.Notes.Select(n => $"- {n}");
+                var fullNote = $"[Auto-Replay]\n{string.Join("\n", noteLines)}";
+                await repo.AddNoteAsync(opponent.Id, fullNote, "replay", matchRecord.Id, playerResult.Tags, ct);
+                _logger.LogInformation("Added auto-note to {Player}: {Note}", playerResult.Name, fullNote);
+            }
 
-                if (!string.IsNullOrWhiteSpace(result.GameMode))
-                {
-                    await repo.AddTagAsync(opponent.Id, result.GameMode, ct);
-                }
+            if (!string.IsNullOrWhiteSpace(result.GameMode))
+            {
+                await repo.AddTagAsync(opponent.Id, result.GameMode, ct);
             }
         }
     }
