@@ -184,7 +184,7 @@
                 return;
             }
             
-            var existingTags = await Db.Tags.Where(t => t.UserId == UserId).ToListAsync();
+            var existingTags = await Db.Tags.ToListAsync();
             var existingOpponents = await Db.Opponents
                 .Include(o => o.Notes)
                 .Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag)
@@ -238,7 +238,7 @@
                         var tag = existingTags.FirstOrDefault(t => t.Name.Equals(tagName, StringComparison.OrdinalIgnoreCase));
                         if (tag == null)
                         {
-                            tag = new TagRule { UserId = UserId, Name = tagName };
+                            tag = new OpponentTag { Name = tagName };
                             Db.Tags.Add(tag);
                             existingTags.Add(tag);
                         }
