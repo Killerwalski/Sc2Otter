@@ -26,11 +26,13 @@ public class LlmAnalysisService
     private readonly ILogger<LlmAnalysisService> _logger;
 
     private const string SystemPrompt = 
-        "You are a Grandmaster StarCraft 2 coach. Analyze the provided game telemetry JSON. " +
-        "'economy' is an array of [minute, workers, supply, min_income, gas_income]. 'armyLost' is an array of [minute, units_lost]. 'unitsMade' is a dict of unit types created. " +
+        "You are a Grandmaster StarCraft 2 coach. Analyze the provided game telemetry JSON (which includes Tags, Notes, and Telemetry). " +
+        "'Tags' and 'Notes' contain the exact build timings and strategy classifications detected in the replay (e.g., 'One baser', 'Fast 3 CC', typed notes). " +
         "Output ONLY a valid JSON object with two fields: " +
-        "'archetype': A 2-3 word classification (e.g., 'Macro Defensive', '1-Base All-In', 'Heavy Harass', 'Standard Macro'). " +
-        "'summary': A 1-2 sentence pragmatic summary of how this player played this game based on the stats. You MUST explicitly state the primary unit types or composition they favored in this summary.";
+        "'archetype': A 2-3 word classification (e.g., '1-Base All-In', 'Heavy Harass', 'Standard Macro'). " +
+        "'summary': A 1-2 sentence pragmatic summary of the opponent's specific opening and overall playstyle. " +
+        "CRITICAL: The core of your summary MUST define their early-game build and timings (using their 'Tags' and 'Notes'). Do NOT give generic 'how to counter it' advice (e.g. 'play safe and spread workers'). Focus entirely on describing WHAT the opponent did (e.g. 'Opened 2-base fast armory into a Medivac Hellbat timing attack'). " +
+        "Use 'Telemetry' (armyActivity, unitsMade) as secondary context to fill in the blanks. Write in natural, human terms.";
 
     public LlmAnalysisService(HttpClient httpClient, SettingsService settingsService, ILogger<LlmAnalysisService> logger)
     {

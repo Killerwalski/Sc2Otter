@@ -310,6 +310,23 @@ def analyze_replay(replay_path, my_name=None):
                                     
             results.append(player_result)
             
+        # Second pass for opponent telemetry and army activity
+        game_length_buckets = max(1, replay.length.seconds // 120)
+        for p_res in results:
+            my_team = p_res["teamId"]
+            opp_army_lost = {}
+            for other_p in results:
+                if other_p["teamId"] != my_team:
+                    for bucket in other_p["telemetry"]["armyLost"]:
+                        minute = bucket[0]
+                        opp_army_lost[minute] = opp_army_lost.get(minute, 0) + bucket[1]
+            
+            p_res["telemetry"]["opponentArmyLost"] = sorted([[k, v] for k, v in opp_army_lost.items()], key=lambda x: x[0])
+            
+            buckets_with_losses = len(p_res["telemetry"]["armyLost"])
+            activity_ratio = min(1.0, buckets_with_losses / game_length_buckets)
+            p_res["telemetry"]["armyActivity"] = round(activity_ratio, 2)
+            
         total_players = len(players)
         if total_players == 2:
             game_mode = "1v1"

@@ -301,17 +301,27 @@ public class ReplayAnalysisService
                 continue;
             }
 
-            foreach (var tag in playerResult.Tags)
+            bool isMatchRecorded = await repo.IsMatchRecordedAsync(opponent.Id, result.StartTime ?? DateTime.UtcNow, ct);
+
+            if (!isMatchRecorded)
             {
-                await repo.AddTagAsync(opponent.Id, tag, ct);
-                _logger.LogInformation("Added tag '{Tag}' to {Player}", tag, playerResult.Name);
+                foreach (var tag in playerResult.Tags)
+                {
+                    await repo.AddTagAsync(opponent.Id, tag, ct);
+                    _logger.LogInformation("Added tag '{Tag}' to {Player}", tag, playerResult.Name);
+                }
             }
 
             var ourResult = MatchResult.Unknown;
-            if (!string.IsNullOrWhiteSpace(playerResult.Result))
+            if (!string.IsNullOrWhiteSpace(playerResult.Result) && !playerResult.Result.Equals("Unknown", StringComparison.OrdinalIgnoreCase))
             {
                 var opponentWon = playerResult.Result.Equals("Win", StringComparison.OrdinalIgnoreCase);
                 ourResult = opponentWon ? MatchResult.Loss : MatchResult.Win;
+            }
+            else if (myResult != null && !string.IsNullOrWhiteSpace(myResult.Result) && !myResult.Result.Equals("Unknown", StringComparison.OrdinalIgnoreCase))
+            {
+                var weWon = myResult.Result.Equals("Win", StringComparison.OrdinalIgnoreCase);
+                ourResult = weWon ? MatchResult.Win : MatchResult.Loss;
             }
 
             var fullMatchDataStr = JsonSerializer.Serialize(result.Data);
@@ -323,7 +333,15 @@ public class ReplayAnalysisService
                 if (telemetryJson != "{}")
                 {
                     _logger.LogInformation("Calling LLM for telemetry analysis on opponent {Player}...", playerResult.Name);
-                    aiSummary = await _llmService.AnalyzeTelemetryAsync(telemetryJson, ct);
+                    
+                    var payload = new {
+                        Tags = playerResult.Tags,
+                        Notes = playerResult.Notes,
+                        Telemetry = JsonSerializer.Deserialize<JsonElement>(telemetryJson)
+                    };
+                    var aiInput = JsonSerializer.Serialize(payload);
+                    
+                    aiSummary = await _llmService.AnalyzeTelemetryAsync(aiInput, ct);
                 }
             }
 
@@ -373,7 +391,7 @@ public class ReplayAnalysisService
                 _logger.LogInformation("Added auto-note to {Player}: {Note}", playerResult.Name, fullNote);
             }
 
-            if (!string.IsNullOrWhiteSpace(result.GameMode))
+            if (!isMatchRecorded && !string.IsNullOrWhiteSpace(result.GameMode))
             {
                 await repo.AddTagAsync(opponent.Id, result.GameMode, ct);
             }

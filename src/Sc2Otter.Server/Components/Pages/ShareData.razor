@@ -1,0 +1,355 @@
+@page "/share"
+@rendermode InteractiveServer
+@using Sc2Otter.Data
+@using Sc2Otter.Core.Models
+@using Sc2Otter.Core.Interfaces
+@using Microsoft.EntityFrameworkCore
+@using System.Text.Json
+@using System.IO
+@using Microsoft.JSInterop
+@inject ScoutDbContext Db
+@inject ICurrentUserService CurrentUser
+@inject IJSRuntime JS
+
+<div class="page-header">
+    <h1>Share Database</h1>
+    <p>Export your opponent database to share with friends, or import someone else's data to merge with yours.</p>
+</div>
+
+<div class="settings-card">
+    <div class="settings-header">
+        <h3>Export Data</h3>
+    </div>
+    <div class="settings-body">
+        <p>Download your entire opponent database as a lightweight JSON file. (Telemetry data is excluded to keep the file size tiny!).</p>
+        <button class="btn btn-primary mt-2" @onclick="ExportData" disabled="@IsProcessing">
+            @(IsProcessing ? "Exporting..." : "Export Database")
+        </button>
+    </div>
+</div>
+
+<div class="settings-card mt-4">
+    <div class="settings-header">
+        <h3>Import Data</h3>
+    </div>
+    <div class="settings-body">
+        <p>Upload a JSON file from a friend. New opponents will be added, and existing opponents will be updated with their tags, notes, and match history.</p>
+        
+        <InputFile OnChange="ImportData" class="form-control mb-2" accept=".json" />
+        
+        @if (!string.IsNullOrEmpty(Message))
+        {
+            <div class="alert @(IsError ? "alert-danger" : "alert-success") mt-2">
+                @Message
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .settings-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 1.5rem;
+    }
+    .settings-header h3 {
+        margin-top: 0;
+        margin-bottom: 1rem;
+        font-size: 1.25rem;
+    }
+    .form-control {
+        display: block;
+        width: 100%;
+        padding: 0.375rem 0.75rem;
+        font-size: 1rem;
+        font-weight: 400;
+        line-height: 1.5;
+        color: #fff;
+        background-color: rgba(0, 0, 0, 0.2);
+        background-clip: padding-box;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 0.25rem;
+        transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+    }
+    .alert {
+        padding: 0.75rem 1.25rem;
+        margin-bottom: 1rem;
+        border: 1px solid transparent;
+        border-radius: 0.25rem;
+    }
+    .alert-success {
+        color: #0f5132;
+        background-color: #d1e7dd;
+        border-color: #badbcc;
+    }
+    .alert-danger {
+        color: #842029;
+        background-color: #f8d7da;
+        border-color: #f5c2c7;
+    }
+</style>
+
+@code {
+    private bool IsProcessing = false;
+    private string Message = "";
+    private bool IsError = false;
+
+    private int UserId => CurrentUser.UserId ?? 1;
+
+    private async Task ExportData()
+    {
+        try
+        {
+            IsProcessing = true;
+            
+            var opponents = await Db.Opponents
+                .Include(o => o.Notes)
+                .Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag)
+                .Include(o => o.MatchRecords)
+                .Where(o => o.UserId == UserId)
+                .ToListAsync();
+                
+            var exportList = opponents.Select(o => new
+            {
+                Name = o.Name,
+                ToonHandle = o.ToonHandle,
+                Race = o.Race,
+                FirstSeen = o.FirstSeen,
+                LastSeen = o.LastSeen,
+                Mmr = o.Mmr,
+                League = o.League,
+                Tags = o.TagAssignments.Select(ta => ta.Tag.Name).ToList(),
+                Notes = o.Notes.Select(n => new { n.Content, n.Source, n.CreatedAt }).ToList(),
+                Matches = o.MatchRecords.Select(m => new {
+                    m.Result,
+                    m.MapName,
+                    m.MyRace,
+                    m.OpponentRace,
+                    m.GameMode,
+                    m.PlayedAt,
+                    m.PlaystyleArchetype,
+                    m.PlaystyleSummary,
+                    m.MyWorkersCreated,
+                    m.OpponentWorkersCreated,
+                    m.MySupplyBlockTime,
+                    m.OpponentSupplyBlockTime,
+                    m.MyAvgUnspentMinerals,
+                    m.OpponentAvgUnspentMinerals,
+                    m.MyAvgMineralIncome,
+                    m.OpponentAvgMineralIncome,
+                    m.MyUnitsMade,
+                    m.OpponentUnitsMade
+                }).ToList()
+            }).ToList();
+            
+            var json = JsonSerializer.Serialize(exportList, new JsonSerializerOptions { WriteIndented = false });
+            
+            var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+            var base64 = Convert.ToBase64String(bytes);
+            
+            var fileName = $"Sc2Otter-Export-{DateTime.Now:yyyy-MM-dd}.json";
+            
+            // Trigger download via JS
+            await JS.InvokeVoidAsync("downloadFileFromBase64", fileName, "application/json", base64);
+        }
+        catch (Exception ex)
+        {
+            IsError = true;
+            Message = $"Export failed: {ex.Message}";
+        }
+        finally
+        {
+            IsProcessing = false;
+        }
+    }
+
+    private async Task ImportData(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            Message = "Importing...";
+            IsError = false;
+            
+            using var stream = e.File.OpenReadStream(1024 * 1024 * 10); // 10MB max
+            using var reader = new StreamReader(stream);
+            var json = await reader.ReadToEndAsync();
+            
+            var importList = JsonSerializer.Deserialize<List<ExportedOpponent>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            
+            if (importList == null || !importList.Any())
+            {
+                IsError = true;
+                Message = "No valid data found in the file.";
+                return;
+            }
+            
+            var existingTags = await Db.Tags.Where(t => t.UserId == UserId).ToListAsync();
+            var existingOpponents = await Db.Opponents
+                .Include(o => o.Notes)
+                .Include(o => o.TagAssignments).ThenInclude(ta => ta.Tag)
+                .Include(o => o.MatchRecords)
+                .Where(o => o.UserId == UserId)
+                .ToListAsync();
+                
+            int newOpponents = 0;
+            int updatedOpponents = 0;
+            
+            foreach (var item in importList)
+            {
+                if (string.IsNullOrWhiteSpace(item.Name)) continue;
+                
+                var opp = existingOpponents.FirstOrDefault(o => o.Name.Equals(item.Name, StringComparison.OrdinalIgnoreCase) 
+                                                             && (o.ToonHandle == item.ToonHandle || string.IsNullOrEmpty(item.ToonHandle)));
+                                                             
+                if (opp == null)
+                {
+                    opp = new Opponent
+                    {
+                        UserId = UserId,
+                        Name = item.Name,
+                        ToonHandle = item.ToonHandle,
+                        Race = item.Race,
+                        FirstSeen = item.FirstSeen,
+                        LastSeen = item.LastSeen,
+                        Mmr = item.Mmr,
+                        League = item.League
+                    };
+                    Db.Opponents.Add(opp);
+                    existingOpponents.Add(opp); // so we don't add duplicates from the file itself
+                    newOpponents++;
+                }
+                else
+                {
+                    updatedOpponents++;
+                    if (opp.FirstSeen > item.FirstSeen) opp.FirstSeen = item.FirstSeen;
+                    if (opp.LastSeen < item.LastSeen) opp.LastSeen = item.LastSeen;
+                    if (string.IsNullOrEmpty(opp.Race) && !string.IsNullOrEmpty(item.Race)) opp.Race = item.Race;
+                }
+                
+                // Tags
+                if (item.Tags != null)
+                {
+                    foreach (var tagName in item.Tags)
+                    {
+                        if (opp.TagAssignments.Any(ta => ta.Tag.Name.Equals(tagName, StringComparison.OrdinalIgnoreCase)))
+                            continue;
+                            
+                        var tag = existingTags.FirstOrDefault(t => t.Name.Equals(tagName, StringComparison.OrdinalIgnoreCase));
+                        if (tag == null)
+                        {
+                            tag = new TagRule { UserId = UserId, Name = tagName };
+                            Db.Tags.Add(tag);
+                            existingTags.Add(tag);
+                        }
+                        
+                        opp.TagAssignments.Add(new OpponentTagAssignment { Tag = tag });
+                    }
+                }
+                
+                // Notes
+                if (item.Notes != null)
+                {
+                    foreach (var note in item.Notes)
+                    {
+                        if (!opp.Notes.Any(n => n.CreatedAt == note.CreatedAt && n.Content == note.Content))
+                        {
+                            opp.Notes.Add(new OpponentNote
+                            {
+                                Content = note.Content,
+                                Source = note.Source,
+                                CreatedAt = note.CreatedAt
+                            });
+                        }
+                    }
+                }
+                
+                // Matches
+                if (item.Matches != null)
+                {
+                    foreach (var m in item.Matches)
+                    {
+                        if (!opp.MatchRecords.Any(em => em.PlayedAt == m.PlayedAt))
+                        {
+                            opp.MatchRecords.Add(new MatchRecord
+                            {
+                                Result = m.Result,
+                                MapName = m.MapName,
+                                MyRace = m.MyRace,
+                                OpponentRace = m.OpponentRace,
+                                GameMode = m.GameMode,
+                                PlayedAt = m.PlayedAt,
+                                PlaystyleArchetype = m.PlaystyleArchetype,
+                                PlaystyleSummary = m.PlaystyleSummary,
+                                MyWorkersCreated = m.MyWorkersCreated,
+                                OpponentWorkersCreated = m.OpponentWorkersCreated,
+                                MySupplyBlockTime = m.MySupplyBlockTime,
+                                OpponentSupplyBlockTime = m.OpponentSupplyBlockTime,
+                                MyAvgUnspentMinerals = m.MyAvgUnspentMinerals,
+                                OpponentAvgUnspentMinerals = m.OpponentAvgUnspentMinerals,
+                                MyAvgMineralIncome = m.MyAvgMineralIncome,
+                                OpponentAvgMineralIncome = m.OpponentAvgMineralIncome,
+                                MyUnitsMade = m.MyUnitsMade,
+                                OpponentUnitsMade = m.OpponentUnitsMade
+                            });
+                        }
+                    }
+                }
+            }
+            
+            await Db.SaveChangesAsync();
+            
+            IsError = false;
+            Message = $"Import successful! Added {newOpponents} new opponents, updated {updatedOpponents} existing.";
+        }
+        catch (Exception ex)
+        {
+            IsError = true;
+            Message = $"Import failed: {ex.Message}";
+        }
+    }
+    
+    // DTOs for import deserialization
+    public class ExportedOpponent
+    {
+        public string Name { get; set; } = "";
+        public string? ToonHandle { get; set; }
+        public string? Race { get; set; }
+        public DateTime FirstSeen { get; set; }
+        public DateTime LastSeen { get; set; }
+        public int? Mmr { get; set; }
+        public string? League { get; set; }
+        public List<string> Tags { get; set; } = new();
+        public List<ExportedNote> Notes { get; set; } = new();
+        public List<ExportedMatch> Matches { get; set; } = new();
+    }
+    
+    public class ExportedNote
+    {
+        public string Content { get; set; } = "";
+        public string? Source { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+    
+    public class ExportedMatch
+    {
+        public MatchResult Result { get; set; }
+        public string? MapName { get; set; }
+        public string? MyRace { get; set; }
+        public string? OpponentRace { get; set; }
+        public string? GameMode { get; set; }
+        public DateTime PlayedAt { get; set; }
+        public string? PlaystyleArchetype { get; set; }
+        public string? PlaystyleSummary { get; set; }
+        public int? MyWorkersCreated { get; set; }
+        public int? OpponentWorkersCreated { get; set; }
+        public int? MySupplyBlockTime { get; set; }
+        public int? OpponentSupplyBlockTime { get; set; }
+        public int? MyAvgUnspentMinerals { get; set; }
+        public int? OpponentAvgUnspentMinerals { get; set; }
+        public int? MyAvgMineralIncome { get; set; }
+        public int? OpponentAvgMineralIncome { get; set; }
+        public string? MyUnitsMade { get; set; }
+        public string? OpponentUnitsMade { get; set; }
+    }
+}

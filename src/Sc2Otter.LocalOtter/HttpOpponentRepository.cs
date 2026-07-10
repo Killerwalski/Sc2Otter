@@ -127,6 +127,27 @@ public class HttpOpponentRepository(HttpClient http) : IOpponentRepository
         return false;
     }
 
+    public async Task<bool> IsMatchRecordedAsync(int opponentId, DateTime playedAt, CancellationToken ct = default)
+    {
+        try
+        {
+            var opp = await GetWithDetailsAsync(opponentId, ct);
+            if (opp == null) return false;
+
+            var exactDuplicate = opp.MatchRecords.FirstOrDefault(m => m.PlayedAt == playedAt);
+            if (exactDuplicate != null) return true;
+
+            var fuzzy = opp.MatchRecords.FirstOrDefault(m =>
+                Math.Abs((playedAt - m.PlayedAt).TotalMinutes) < 60);
+            if (fuzzy != null) return true;
+        }
+        catch
+        {
+            // Ignore connectivity errors.
+        }
+        return false;
+    }
+
     public async Task<MatchRecord> RecordMatchAsync(int opponentId, RecordMatchRequest req, CancellationToken ct = default)
     {
         var res = await http.PostAsJsonAsync($"/api/opponents/{opponentId}/matches", req, ct);

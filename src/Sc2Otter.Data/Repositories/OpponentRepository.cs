@@ -288,6 +288,22 @@ public class OpponentRepository(ScoutDbContext db, ICurrentUserService currentUs
         return fuzzy != null;
     }
 
+    public async Task<bool> IsMatchRecordedAsync(int opponentId, DateTime playedAt, CancellationToken ct = default)
+    {
+        var exactDuplicate = await db.MatchRecords.FirstOrDefaultAsync(m =>
+            m.OpponentId == opponentId && m.PlayedAt == playedAt, ct);
+        if (exactDuplicate != null) return true;
+
+        var lowerBound = playedAt.AddHours(-1);
+        var upperBound = playedAt.AddHours(1);
+        var fuzzy = await db.MatchRecords.FirstOrDefaultAsync(m =>
+            m.OpponentId == opponentId &&
+            m.PlayedAt >= lowerBound &&
+            m.PlayedAt <= upperBound, ct);
+
+        return fuzzy != null;
+    }
+
     public async Task<MatchRecord> RecordMatchAsync(int opponentId, RecordMatchRequest req, CancellationToken ct = default)
     {
         var opponent = await db.Opponents.FirstOrDefaultAsync(o => o.UserId == UserId && o.Id == opponentId, ct);

@@ -20,6 +20,7 @@ public interface IOpponentRepository
     Task<List<OpponentTag>> GetAllTagsAsync(CancellationToken ct = default);
     Task<MatchRecord> RecordMatchAsync(int opponentId, RecordMatchRequest req, CancellationToken ct = default);
     Task<bool> IsMatchAlreadyAnalyzedAsync(int opponentId, DateTime playedAt, CancellationToken ct = default);
+    Task<bool> IsMatchRecordedAsync(int opponentId, DateTime playedAt, CancellationToken ct = default);
     Task<MatchRecord?> GetMatchByIdAsync(int matchId, CancellationToken ct = default);
     Task<List<MatchRecord>> GetMatchesByDateAsync(DateTime playedAt, CancellationToken ct = default);
     Task<(int TotalGames, int Wins, int Losses)> GetStatsAsync(int opponentId, CancellationToken ct = default);
