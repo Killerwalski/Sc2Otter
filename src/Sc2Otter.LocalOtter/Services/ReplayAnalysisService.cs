@@ -313,15 +313,27 @@ public class ReplayAnalysisService
             }
 
             var ourResult = MatchResult.Unknown;
-            if (!string.IsNullOrWhiteSpace(playerResult.Result) && !playerResult.Result.Equals("Unknown", StringComparison.OrdinalIgnoreCase))
+            
+            bool IsKnown(string? r) => !string.IsNullOrWhiteSpace(r) && !r.Equals("Unknown", StringComparison.OrdinalIgnoreCase);
+            bool IsWin(string? r) => r?.Equals("Win", StringComparison.OrdinalIgnoreCase) == true;
+
+            if (IsKnown(playerResult.Result))
             {
-                var opponentWon = playerResult.Result.Equals("Win", StringComparison.OrdinalIgnoreCase);
-                ourResult = opponentWon ? MatchResult.Loss : MatchResult.Win;
+                ourResult = IsWin(playerResult.Result) ? MatchResult.Loss : MatchResult.Win;
             }
-            else if (myResult != null && !string.IsNullOrWhiteSpace(myResult.Result) && !myResult.Result.Equals("Unknown", StringComparison.OrdinalIgnoreCase))
+            else if (myResult != null && IsKnown(myResult.Result))
             {
-                var weWon = myResult.Result.Equals("Win", StringComparison.OrdinalIgnoreCase);
-                ourResult = weWon ? MatchResult.Win : MatchResult.Loss;
+                ourResult = IsWin(myResult.Result) ? MatchResult.Win : MatchResult.Loss;
+            }
+            else if (result.Data.Any(p => p.TeamId == playerResult.TeamId && IsKnown(p.Result)))
+            {
+                var knownOpp = result.Data.First(p => p.TeamId == playerResult.TeamId && IsKnown(p.Result));
+                ourResult = IsWin(knownOpp.Result) ? MatchResult.Loss : MatchResult.Win;
+            }
+            else if (myResult != null && result.Data.Any(p => p.TeamId == myResult.TeamId && IsKnown(p.Result)))
+            {
+                var knownTeammate = result.Data.First(p => p.TeamId == myResult.TeamId && IsKnown(p.Result));
+                ourResult = IsWin(knownTeammate.Result) ? MatchResult.Win : MatchResult.Loss;
             }
 
             var fullMatchDataStr = JsonSerializer.Serialize(result.Data);
